@@ -24,6 +24,7 @@ export function SettingsModal() {
       {settingsOpen && (
         <>
           <motion.div
+            key="settings-backdrop"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -31,6 +32,7 @@ export function SettingsModal() {
             onClick={() => setSettingsOpen(false)}
           />
           <motion.div
+            key="settings-panel"
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}

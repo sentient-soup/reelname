@@ -174,9 +174,9 @@ function GroupRow({
         <td className="px-4 py-2.5">
           <MediaTypeBadge type={group.mediaType} />
         </td>
-        <td className="px-4 py-2.5">
+        <td className="px-4 py-2.5 max-w-0">
           <div className="flex items-baseline gap-2">
-            <span className="font-medium text-text-primary">
+            <span className="font-medium text-text-primary truncate">
               {group.tmdbTitle || group.parsedTitle || group.folderName}
             </span>
             {year && (
@@ -187,7 +187,7 @@ function GroupRow({
             </span>
           </div>
           {group.tmdbTitle && group.folderName !== group.tmdbTitle && (
-            <div className="text-[11px] text-text-muted font-mono truncate max-w-[400px]">
+            <div className="text-[11px] text-text-muted font-mono truncate">
               {group.folderName}
             </div>
           )}
@@ -223,7 +223,7 @@ function FileRow({ job }: { job: JobWithPreview }) {
       <td className="px-4 py-1.5">
         <FileCategoryBadge category={job.fileCategory || "episode"} />
       </td>
-      <td className="px-4 py-1.5">
+      <td className="px-4 py-1.5 max-w-0">
         <div className="flex items-center gap-2">
           {seLabel && (
             <span className="font-mono text-xs text-text-muted w-14 flex-shrink-0">
@@ -231,7 +231,7 @@ function FileRow({ job }: { job: JobWithPreview }) {
             </span>
           )}
           <div className="min-w-0">
-            <span className="font-mono text-xs text-text-secondary truncate block max-w-[400px]">
+            <span className="font-mono text-xs text-text-secondary truncate block">
               {job.fileName}
             </span>
             {job.tmdbEpisodeTitle && (
@@ -241,7 +241,7 @@ function FileRow({ job }: { job: JobWithPreview }) {
             )}
             {job.previewName && (
               <span
-                className="font-mono text-[11px] text-accent/70 truncate block max-w-[400px]"
+                className="font-mono text-[11px] text-accent/70 truncate block"
                 title={job.previewName}
               >
                 &rarr; {job.previewName}

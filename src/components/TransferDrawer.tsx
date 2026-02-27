@@ -242,9 +242,11 @@ export function TransferDrawer({ onRefresh }: { onRefresh: () => void }) {
   ).length;
 
   return (
+    <>
     <AnimatePresence>
       {transferDrawerOpen && (
         <motion.div
+          key="transfer-drawer"
           initial={{ y: "100%" }}
           animate={{ y: 0 }}
           exit={{ y: "100%" }}
@@ -380,6 +382,8 @@ export function TransferDrawer({ onRefresh }: { onRefresh: () => void }) {
         </motion.div>
       )}
 
+    </AnimatePresence>
+
       {/* Add Destination Modal */}
       {showAddDest && (
         <AddDestinationModal
@@ -396,7 +400,7 @@ export function TransferDrawer({ onRefresh }: { onRefresh: () => void }) {
           }}
         />
       )}
-    </AnimatePresence>
+    </>
   );
 }
 
