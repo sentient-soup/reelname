@@ -42,3 +42,7 @@ next-env.d.ts
 
 # database
 /data/
+
+# electron
+/dist-electron/
+/build-resources/*-node/

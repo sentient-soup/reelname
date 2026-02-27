@@ -4,10 +4,18 @@ import * as schema from "./schema";
 import path from "path";
 import fs from "fs";
 
-const DB_PATH = path.join(process.cwd(), "data", "reelname.db");
+function getDataDir(): string {
+  if (process.env.REELNAME_DATA_DIR) {
+    return process.env.REELNAME_DATA_DIR;
+  }
+  return path.join(process.cwd(), "data");
+}
+
+export const DATA_DIR = getDataDir();
+const DB_PATH = path.join(DATA_DIR, "reelname.db");
 
 // Ensure data directory exists
-fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
+fs.mkdirSync(DATA_DIR, { recursive: true });
 
 const sqlite = new Database(DB_PATH);
 sqlite.pragma("journal_mode = WAL");

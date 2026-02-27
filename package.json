@@ -2,13 +2,21 @@
   "name": "reelname",
   "version": "0.1.0",
   "private": true,
+  "description": "Media file renaming and transfer tool",
+  "author": "ReelName",
+  "main": "electron/main.js",
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
     "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "electron:dev": "node scripts/electron-dev.js",
+    "electron:build": "node scripts/build-electron.js",
+    "electron:build:win": "node scripts/build-electron.js --platform=win",
+    "electron:build:mac": "node scripts/build-electron.js --platform=mac",
+    "electron:build:linux": "node scripts/build-electron.js --platform=linux"
   },
   "dependencies": {
     "better-sqlite3": "^12.6.2",
@@ -25,7 +33,8 @@
       "better-sqlite3",
       "cpu-features",
       "ssh2",
-      "esbuild"
+      "esbuild",
+      "electron"
     ]
   },
   "devDependencies": {
@@ -36,9 +45,60 @@
     "@types/react-dom": "^19",
     "@types/ssh2": "^1.15.5",
     "drizzle-kit": "^0.31.9",
+    "electron": "^35.0.0",
+    "electron-builder": "^26.0.0",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "build": {
+    "appId": "com.reelname.app",
+    "productName": "ReelName",
+    "npmRebuild": false,
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "electron/**/*",
+      "!node_modules"
+    ],
+    "extraResources": [
+      {
+        "from": ".next/standalone",
+        "to": "standalone",
+        "filter": ["**/*"]
+      },
+      {
+        "from": "build-resources/icon.png",
+        "to": "icon.png"
+      },
+      {
+        "from": "build-resources/${os}-node",
+        "to": "node"
+      }
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "build-resources/icon.ico",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "build-resources/icon-1024.png",
+      "category": "public.app-category.utilities"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "icon": "build-resources/icon.png",
+      "category": "Utility"
+    }
   }
 }
