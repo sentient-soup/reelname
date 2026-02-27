@@ -59,6 +59,7 @@ Jobs have a `fileCategory`: `episode`, `movie`, `special`, `extra`. Specials are
 
 ## Conventions
 
+- **Versioning**: Increment the patch version in `package.json` after every change (e.g. `0.2.0` → `0.2.1`).
 - **Path alias**: `@/*` maps to `./src/*`
 - **TypeScript strict mode** is on
 - **Client components** use `"use client"` directive

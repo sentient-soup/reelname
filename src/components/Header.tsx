@@ -25,10 +25,13 @@ export function Header({
   return (
     <header className="flex items-center justify-between px-6 py-4 border-b border-border bg-bg-secondary">
       <div className="flex items-center gap-4">
-        <h1 className="text-xl font-bold tracking-tight">
-          <span className="text-accent">Reel</span>
-          <span className="text-text-primary">Name</span>
-        </h1>
+        <div className="flex items-center gap-2.5">
+          <img src="/icon.svg" alt="" width={28} height={28} className="rounded-md" />
+          <h1 className="text-xl font-bold tracking-tight">
+            <span className="text-accent">Reel</span>
+            <span className="text-text-primary">Name</span>
+          </h1>
+        </div>
         <span className="text-text-muted text-sm">
           {totalGroups} group{totalGroups !== 1 ? "s" : ""} ({totalFiles} file
           {totalFiles !== 1 ? "s" : ""})
