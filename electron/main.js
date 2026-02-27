@@ -5,6 +5,43 @@ const fs = require("fs");
 const net = require("net");
 const http = require("http");
 
+// ── Logging ────────────────────────────────────────────
+
+let logStream = null;
+
+function initLogging() {
+  const logDir = path.join(app.getPath("userData"), "logs");
+  fs.mkdirSync(logDir, { recursive: true });
+  const logFile = path.join(logDir, "main.log");
+  // Rotate: keep last log as .old
+  try {
+    if (fs.existsSync(logFile)) {
+      fs.renameSync(logFile, logFile + ".old");
+    }
+  } catch { /* ok */ }
+  logStream = fs.createWriteStream(logFile, { flags: "a" });
+
+  const origLog = console.log;
+  const origErr = console.error;
+  const origWarn = console.warn;
+  const ts = () => new Date().toISOString();
+  console.log = (...args) => {
+    const msg = `[${ts()}] ${args.join(" ")}`;
+    origLog(msg);
+    logStream?.write(msg + "\n");
+  };
+  console.error = (...args) => {
+    const msg = `[${ts()}] ERROR: ${args.join(" ")}`;
+    origErr(msg);
+    logStream?.write(msg + "\n");
+  };
+  console.warn = (...args) => {
+    const msg = `[${ts()}] WARN: ${args.join(" ")}`;
+    origWarn(msg);
+    logStream?.write(msg + "\n");
+  };
+}
+
 // ── Constants ──────────────────────────────────────────
 
 const APP_NAME = "ReelName";
@@ -132,7 +169,11 @@ async function startServer() {
   console.log(`Starting server: ${nodeBin} ${serverEntry}`);
   console.log(`Port: ${serverPort}, Data dir: ${dataDir}`);
 
+  const serverDir = path.dirname(serverEntry);
+  console.log(`Server directory: ${serverDir}`);
+
   serverProcess = spawn(nodeBin, [serverEntry], {
+    cwd: serverDir,
     env: {
       ...process.env,
       PORT: String(serverPort),
@@ -309,6 +350,10 @@ app.on("second-instance", () => {
 });
 
 app.whenReady().then(async () => {
+  initLogging();
+  console.log(`ReelName v${app.getVersion()} starting`);
+  console.log(`Packaged: ${app.isPackaged}, Platform: ${process.platform}`);
+  console.log(`User data: ${app.getPath("userData")}`);
   createTray();
   const ready = await startServer();
   if (ready) openBrowser();

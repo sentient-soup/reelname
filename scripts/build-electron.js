@@ -17,7 +17,11 @@ const { createWriteStream } = require("fs");
 
 const ROOT = path.resolve(__dirname, "..");
 const STANDALONE = path.join(ROOT, ".next", "standalone");
-const NODE_VERSION = "20.20.0"; // LTS
+// Bundled Node version MUST match the version used to compile native modules
+// (i.e., the Node version that ran `pnpm install`). If they differ, native
+// addons like better-sqlite3 will fail with NODE_MODULE_VERSION mismatch.
+// Auto-detect from the current Node version at build time.
+const NODE_VERSION = process.versions.node;
 
 // ── Helpers ────────────────────────────────────────────
 
@@ -29,6 +33,110 @@ function run(cmd, opts = {}) {
 function copyDir(src, dest) {
   fs.cpSync(src, dest, { recursive: true });
 }
+
+function flattenNodeModules(nmDir) {
+  // pnpm standalone output uses a .pnpm virtual store with symlinks.
+  // Standard Node.js resolution can't navigate this in a packaged app.
+  // Solution: hoist all packages from .pnpm into a flat node_modules.
+  const pnpmDir = path.join(nmDir, ".pnpm");
+  if (!fs.existsSync(pnpmDir)) return;
+
+  // Walk .pnpm/*/node_modules/* and copy each package to the top level
+  for (const storeEntry of fs.readdirSync(pnpmDir)) {
+    const innerNm = path.join(pnpmDir, storeEntry, "node_modules");
+    if (!fs.existsSync(innerNm)) continue;
+
+    for (const pkg of fs.readdirSync(innerNm, { withFileTypes: true })) {
+      const srcPkg = path.join(innerNm, pkg.name);
+      const destPkg = path.join(nmDir, pkg.name);
+
+      // Resolve symlinks to real paths
+      let realSrc;
+      try {
+        realSrc = fs.realpathSync(srcPkg);
+      } catch {
+        continue;
+      }
+
+      // Skip if already exists at top level (first copy wins — top-level
+      // packages from the original output take priority)
+      if (fs.existsSync(destPkg)) continue;
+
+      // Handle scoped packages (@org/name)
+      if (pkg.name.startsWith("@")) {
+        fs.mkdirSync(destPkg, { recursive: true });
+        for (const scopedPkg of fs.readdirSync(realSrc, { withFileTypes: true })) {
+          const scopedSrc = path.join(realSrc, scopedPkg.name);
+          const scopedDest = path.join(destPkg, scopedPkg.name);
+          if (!fs.existsSync(scopedDest)) {
+            const realScoped = fs.realpathSync(scopedSrc);
+            fs.cpSync(realScoped, scopedDest, { recursive: true, dereference: true });
+          }
+        }
+      } else {
+        fs.cpSync(realSrc, destPkg, { recursive: true, dereference: true });
+      }
+    }
+  }
+
+  // Remove .pnpm directory — no longer needed
+  fs.rmSync(pnpmDir, { recursive: true, force: true });
+
+  // Dereference any remaining symlinks at top level
+  for (const entry of fs.readdirSync(nmDir, { withFileTypes: true })) {
+    const fullPath = path.join(nmDir, entry.name);
+    if (entry.isSymbolicLink()) {
+      const target = fs.realpathSync(fullPath);
+      fs.rmSync(fullPath, { recursive: true, force: true });
+      fs.cpSync(target, fullPath, { recursive: true, dereference: true });
+    }
+  }
+}
+
+function pruneStandalone(nmDir) {
+  // Remove packages that Next.js standalone incorrectly includes
+  const prunePackages = [
+    "typescript",       // devDep, 23MB — not needed at runtime
+  ];
+
+  for (const pkg of prunePackages) {
+    const pkgPath = path.join(nmDir, pkg);
+    if (fs.existsSync(pkgPath)) {
+      fs.rmSync(pkgPath, { recursive: true, force: true });
+      console.log(`  Pruned ${pkg}/`);
+    }
+  }
+
+  // Remove unnecessary files from next/dist to save ~40MB
+  const nextDist = path.join(nmDir, "next", "dist");
+  if (fs.existsSync(nextDist)) {
+    const pruneDirs = [
+      // Dev-only compiled dependencies
+      path.join(nextDist, "compiled", "next-devtools"),
+      path.join(nextDist, "compiled", "babel"),
+      path.join(nextDist, "compiled", "babel-packages"),
+      path.join(nextDist, "compiled", "@babel"),
+      path.join(nextDist, "compiled", "webpack"),
+      // Experimental React bundles (not used in production)
+      path.join(nextDist, "compiled", "react-dom-experimental"),
+      path.join(nextDist, "compiled", "react-server-dom-webpack-experimental"),
+      path.join(nextDist, "compiled", "react-server-dom-turbopack-experimental"),
+      // Edge runtime (not used — we run standard Node.js server)
+      path.join(nextDist, "compiled", "@edge-runtime"),
+      // Build-time esm output
+      path.join(nextDist, "esm"),
+    ];
+
+    for (const dir of pruneDirs) {
+      if (fs.existsSync(dir)) {
+        const size = execSync(`du -sh "${dir}"`, { encoding: "utf-8" }).trim().split("\t")[0];
+        fs.rmSync(dir, { recursive: true, force: true });
+        console.log(`  Pruned next/dist/.../${path.basename(dir)}/ (${size})`);
+      }
+    }
+  }
+}
+
 
 function download(url, dest) {
   return new Promise((resolve, reject) => {
@@ -140,6 +248,14 @@ async function downloadNodeBinary(platform) {
 
 async function main() {
   const platform = getTargetPlatform();
+  const downloadNodeOnly = process.argv.includes("--download-node-only");
+
+  if (downloadNodeOnly) {
+    console.log(`Downloading Node.js binary for platform: ${platform}`);
+    await downloadNodeBinary(platform);
+    return;
+  }
+
   console.log(`Building ReelName for platform: ${platform}`);
 
   // Step 1: Build Next.js
@@ -166,6 +282,19 @@ async function main() {
     console.log("Copied public/");
   }
 
+  // Step 2b: Flatten pnpm node_modules into standard layout
+  // pnpm's .pnpm virtual store uses symlinks that break when packaged.
+  // Hoist all packages to a flat node_modules so standard Node resolution works.
+  console.log("\n=== Step 2b: Flattening node_modules ===");
+  const nmDir = path.join(STANDALONE, "node_modules");
+  if (fs.existsSync(nmDir)) {
+    flattenNodeModules(nmDir);
+    console.log("Flattened standalone/node_modules/ for packaging");
+
+    console.log("\n=== Step 2c: Pruning unnecessary packages ===");
+    pruneStandalone(nmDir);
+  }
+
   // Step 3: Download Node binary
   console.log("\n=== Step 3: Downloading Node.js binary ===");
   await downloadNodeBinary(platform);
@@ -176,7 +305,7 @@ async function main() {
   const platformFlag = { win: "--win", mac: "--mac", linux: "--linux" }[platform];
   // Skip code signing unless CSC_LINK is set (signing certificate provided)
   const signingEnv = process.env.CSC_LINK ? {} : { CSC_IDENTITY_AUTO_DISCOVERY: "false" };
-  run(`pnpm exec electron-builder ${platformFlag}`, {
+  run(`pnpm exec electron-builder ${platformFlag} --config electron-builder.js`, {
     env: { ...process.env, ...signingEnv },
   });
 

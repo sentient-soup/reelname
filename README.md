@@ -2,8 +2,6 @@
 
 Media file renaming and transfer tool. Scans folders of video files, identifies them against The Movie Database, generates properly formatted filenames for Jellyfin or Plex, and transfers them to local or remote destinations via SFTP.
 
-> This application was built with [Claude](https://claude.ai) by Anthropic.
-
 ## Workflow
 
 1. **Scan** -- Point at a folder of media. ReelName walks the directory tree, groups files by folder, and parses titles, years, seasons, and episodes from filenames.

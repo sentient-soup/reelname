@@ -1,6 +1,6 @@
 {
   "name": "reelname",
-  "version": "0.2.1",
+  "version": "0.2.6",
   "private": true,
   "description": "Media file renaming and transfer tool",
   "author": "ReelName",
@@ -49,56 +49,9 @@
     "electron-builder": "^26.0.0",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
+    "rcedit": "^5.0.2",
     "tailwindcss": "^4",
     "typescript": "^5"
   },
-  "build": {
-    "appId": "com.reelname.app",
-    "productName": "ReelName",
-    "npmRebuild": false,
-    "directories": {
-      "output": "dist-electron"
-    },
-    "files": [
-      "electron/**/*",
-      "!node_modules"
-    ],
-    "extraResources": [
-      {
-        "from": ".next/standalone",
-        "to": "standalone",
-        "filter": ["**/*"]
-      },
-      {
-        "from": "build-resources/icon.png",
-        "to": "icon.png"
-      },
-      {
-        "from": "build-resources/${os}-node",
-        "to": "node"
-      }
-    ],
-    "win": {
-      "target": "nsis",
-      "icon": "build-resources/icon.ico",
-      "signAndEditExecutable": false
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true
-    },
-    "mac": {
-      "target": "dmg",
-      "icon": "build-resources/icon-1024.png",
-      "category": "public.app-category.utilities"
-    },
-    "linux": {
-      "target": [
-        "AppImage",
-        "deb"
-      ],
-      "icon": "build-resources/icon.png",
-      "category": "Utility"
-    }
-  }
+  "build": {}
 }
