@@ -96,7 +96,7 @@ Electron main process (tray icon)
 
 ### Why a Separate Node Process?
 
-The Next.js server uses native modules (better-sqlite3, ssh2) compiled against the system Node ABI. Rather than rebuilding them against Electron's Node ABI, the server runs in a bundled Node.js binary. This adds ~30-50MB but eliminates native module build complexity.
+The Next.js server uses native modules (better-sqlite3, ssh2) compiled against the system Node ABI. Rather than rebuilding them against Electron's Node ABI, the server runs in a bundled Node.js binary. The bundled Node version is auto-detected from the system Node at build time to ensure the native module ABI always matches.
 
 ### Data Directory
 
@@ -130,10 +130,16 @@ pnpm electron:build:linux    # Linux AppImage + deb
 The build pipeline (`scripts/build-electron.js`):
 1. Runs `pnpm build` (produces `.next/standalone/`)
 2. Copies `.next/static/` and `public/` into the standalone output
-3. Downloads a Node.js LTS binary for the target platform
-4. Runs `electron-builder` to produce the installer
+3. Flattens pnpm `node_modules` (hoists packages from `.pnpm` virtual store and dereferences symlinks so they survive packaging)
+4. Prunes dev-only packages (`typescript`, `next/dist/esm`)
+5. Downloads a Node.js binary matching the system version for the target platform
+6. Runs `electron-builder` to produce the installer
+
+Builder config lives in `electron-builder.js` (a JS file rather than package.json) to support an `afterPack` hook that embeds the custom icon via `rcedit`.
 
 Output goes to `dist-electron/`.
+
+> **Note:** The bundled Node.js version must match the version used during `pnpm install`. Native modules (better-sqlite3) are compiled against a specific Node ABI at install time, and a mismatch will cause runtime crashes.
 
 ## Scripts
 
@@ -199,8 +205,9 @@ electron/
   main.js                 # Tray icon, server management, lifecycle
   preload.js              # Empty (electron-builder requirement)
 scripts/
-  build-electron.js       # Full build pipeline
+  build-electron.js       # Full build pipeline (flatten, prune, bundle)
   electron-dev.js         # Dev launcher
+electron-builder.js       # Builder config + afterPack icon hook
 build-resources/          # Electron build assets
   icon.png                # 512px app icon (tray, Linux)
   icon.ico                # Multi-size Windows icon (16-256px)
@@ -211,6 +218,15 @@ public/                   # Web static assets
   icon.svg                # Modern SVG favicon
   apple-touch-icon.png    # iOS/Safari bookmarks
 ```
+
+## CI/CD
+
+A GitHub Actions workflow (`.github/workflows/release.yml`) builds installers for all three platforms when you push to the `release` branch:
+
+1. Builds Windows (NSIS `.exe`), macOS (`.dmg`), and Linux (`.AppImage` + `.deb`) in parallel
+2. Creates a draft GitHub Release with auto-generated changelog
+
+The workflow uses `setup-node` with Node 22 and runs the full `scripts/build-electron.js` pipeline on each platform.
 
 ## Icons
 

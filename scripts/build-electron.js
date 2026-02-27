@@ -94,7 +94,10 @@ function flattenNodeModules(nmDir) {
 }
 
 function pruneStandalone(nmDir) {
-  // Remove packages that Next.js standalone incorrectly includes
+  // Remove top-level packages that Next.js standalone incorrectly includes.
+  // IMPORTANT: Do NOT prune anything under next/dist/compiled/ — Next.js
+  // cross-references these modules at server startup in unpredictable ways
+  // (e.g. @edge-runtime/cookies is used by the Node server, not just edge).
   const prunePackages = [
     "typescript",       // devDep, 23MB — not needed at runtime
   ];
@@ -107,33 +110,13 @@ function pruneStandalone(nmDir) {
     }
   }
 
-  // Remove unnecessary files from next/dist to save ~40MB
-  const nextDist = path.join(nmDir, "next", "dist");
-  if (fs.existsSync(nextDist)) {
-    const pruneDirs = [
-      // Dev-only compiled dependencies
-      path.join(nextDist, "compiled", "next-devtools"),
-      path.join(nextDist, "compiled", "babel"),
-      path.join(nextDist, "compiled", "babel-packages"),
-      path.join(nextDist, "compiled", "@babel"),
-      path.join(nextDist, "compiled", "webpack"),
-      // Experimental React bundles (not used in production)
-      path.join(nextDist, "compiled", "react-dom-experimental"),
-      path.join(nextDist, "compiled", "react-server-dom-webpack-experimental"),
-      path.join(nextDist, "compiled", "react-server-dom-turbopack-experimental"),
-      // Edge runtime (not used — we run standard Node.js server)
-      path.join(nextDist, "compiled", "@edge-runtime"),
-      // Build-time esm output
-      path.join(nextDist, "esm"),
-    ];
-
-    for (const dir of pruneDirs) {
-      if (fs.existsSync(dir)) {
-        const size = execSync(`du -sh "${dir}"`, { encoding: "utf-8" }).trim().split("\t")[0];
-        fs.rmSync(dir, { recursive: true, force: true });
-        console.log(`  Pruned next/dist/.../${path.basename(dir)}/ (${size})`);
-      }
-    }
+  // Only prune next/dist/esm — a duplicate ESM build of the entire dist that
+  // is never loaded by the standalone Node.js server (it uses CJS).
+  const esmDir = path.join(nmDir, "next", "dist", "esm");
+  if (fs.existsSync(esmDir)) {
+    const size = execSync(`du -sh "${esmDir}"`, { encoding: "utf-8" }).trim().split("\t")[0];
+    fs.rmSync(esmDir, { recursive: true, force: true });
+    console.log(`  Pruned next/dist/esm/ (${size})`);
   }
 }
 

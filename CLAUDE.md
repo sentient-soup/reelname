@@ -13,6 +13,8 @@ pnpm build            # Production build
 pnpm lint             # ESLint
 npx tsc --noEmit      # Typecheck (safe to run)
 pnpm db:push          # Push Drizzle schema to SQLite
+pnpm electron:dev     # Launch Electron tray wrapper (dev)
+pnpm electron:build   # Build installer for current platform
 ```
 
 ## Architecture
@@ -57,6 +59,29 @@ Jobs have a `fileCategory`: `episode`, `movie`, `special`, `extra`. Specials are
 
 `src/lib/naming.ts` formats destination paths. Two presets: `jellyfin` and `plex`. Handles movies, TV episodes, specials, and extras with configurable folder names.
 
+### Electron Desktop App
+
+Tray-only Electron wrapper (no BrowserWindow). Spawns the Next.js standalone server as a child process using a bundled Node.js binary, then opens the default browser.
+
+Key files: `electron/main.js` (tray/lifecycle), `scripts/build-electron.js` (build pipeline), `scripts/electron-dev.js` (dev launcher), `electron-builder.js` (builder config with afterPack hook for icon embedding).
+
+**Build pipeline** (`scripts/build-electron.js`):
+1. `pnpm build` → standalone output
+2. Copy `.next/static/` and `public/` into standalone
+3. Flatten pnpm `node_modules` (hoist from `.pnpm` virtual store, dereference symlinks)
+4. Prune dev-only packages (`typescript`, `next/dist/esm`)
+5. Download Node.js binary matching system version
+6. Run `electron-builder`
+
+**Critical build constraints:**
+- The bundled Node version is auto-detected from `process.versions.node` — it MUST match the version that ran `pnpm install` to avoid native module ABI mismatches (better-sqlite3).
+- pnpm's `.pnpm` virtual store symlinks break when packaged; the flatten step is mandatory.
+- Do NOT prune anything under `next/dist/compiled/` — Next.js cross-references these at server startup in unpredictable ways.
+- `signAndEditExecutable: false` in the win config disables both signing and icon embedding. The custom icon is embedded via an `afterPack` hook using `rcedit` instead.
+- Builder config lives in `electron-builder.js` (JS file, not package.json) to support the `afterPack` hook function.
+
+**Portable data**: `REELNAME_DATA_DIR` env var controls the SQLite database location. In desktop mode, Electron sets this to platform-appropriate app data.
+
 ## Conventions
 
 - **Versioning**: Increment the patch version in `package.json` after every change (e.g. `0.2.0` → `0.2.1`).
@@ -86,3 +111,6 @@ Jobs have a `fileCategory`: `episode`, `movie`, `special`, `extra`. Specials are
 | `src/components/QueueTable.tsx` | Main data table |
 | `src/components/MatchPanel.tsx` | TMDB match review side panel |
 | `src/components/TransferDrawer.tsx` | Transfer UI and destination management |
+| `electron/main.js` | Electron tray icon, server lifecycle, logging |
+| `scripts/build-electron.js` | Electron build pipeline (flatten, prune, bundle) |
+| `electron-builder.js` | electron-builder config + afterPack icon hook |

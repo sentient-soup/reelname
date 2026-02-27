@@ -46,3 +46,7 @@ next-env.d.ts
 # electron
 /dist-electron/
 /build-resources/*-node/
+
+
+# claude config + claude worktrees
+/.claude/
