@@ -184,3 +184,19 @@ export async function startTransfer(
   });
   return res.json();
 }
+
+export async function fetchTransferStatus(): Promise<{
+  active: boolean;
+  jobs: Array<{
+    id: number;
+    status: string;
+    fileName: string;
+    fileSize: number;
+    transferProgress: number | null;
+    transferError: string | null;
+    destinationPath: string | null;
+  }>;
+}> {
+  const res = await fetch("/api/transfer/status");
+  return res.json();
+}

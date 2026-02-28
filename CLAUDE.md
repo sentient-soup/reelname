@@ -84,7 +84,7 @@ Key files: `electron/main.js` (tray/lifecycle), `scripts/build-electron.js` (bui
 
 ## Conventions
 
-- **Versioning**: Increment the patch version in `package.json` after every change (e.g. `0.2.0` → `0.2.1`).
+- **Versioning**: Increment the patch version in `package.json` when actual code changes (e.g. `0.2.0` → `0.2.1`). Do NOT bump for documentation (markdown files), CI/CD workflows, or other non-code changes.
 - **Path alias**: `@/*` maps to `./src/*`
 - **TypeScript strict mode** is on
 - **Client components** use `"use client"` directive

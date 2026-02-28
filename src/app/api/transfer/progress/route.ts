@@ -39,14 +39,14 @@ export async function GET(request: Request) {
                 destinationPath: jobs.destinationPath,
               })
               .from(jobs)
-              .where(inArray(jobs.status, ["transferring", "completed", "failed"]))
+              .where(inArray(jobs.status, ["queued", "transferring", "completed", "failed"]))
               .all();
           }
 
           const data = JSON.stringify(transferJobs);
           controller.enqueue(encoder.encode(`data: ${data}\n\n`));
 
-          // Check if all done
+          // Check if all done (no queued or transferring jobs remain)
           const allDone = transferJobs.every(
             (j) =>
               j.status === "completed" ||

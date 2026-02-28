@@ -46,7 +46,32 @@ export async function POST(request: Request) {
       );
     }
 
-    const result = queueTransfers([...allJobIds], destinationId);
+    const jobIdArray = [...allJobIds];
+
+    // Reset any old completed/failed jobs so they don't pollute progress totals
+    db.update(jobs)
+      .set({
+        status: "confirmed",
+        transferProgress: null,
+        transferError: null,
+        destinationPath: null,
+        updatedAt: new Date().toISOString(),
+      })
+      .where(inArray(jobs.status, ["completed", "failed"]))
+      .run();
+
+    // Mark all new jobs as queued so they're immediately visible to SSE/status
+    db.update(jobs)
+      .set({
+        status: "queued",
+        transferProgress: null,
+        transferError: null,
+        updatedAt: new Date().toISOString(),
+      })
+      .where(inArray(jobs.id, jobIdArray))
+      .run();
+
+    const result = queueTransfers(jobIdArray, destinationId);
     return NextResponse.json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Transfer failed";

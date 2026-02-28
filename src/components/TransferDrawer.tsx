@@ -9,6 +9,7 @@ import {
   deleteDestination,
   startTransfer,
   testSshConnection,
+  fetchTransferStatus,
 } from "@/lib/api";
 
 interface TransferJob {
@@ -95,13 +96,13 @@ export function TransferDrawer({ onRefresh }: { onRefresh: () => void }) {
         return;
       }
 
-      const jobs = data as TransferJob[];
-      setActiveTransfers(jobs);
+      const transferJobs = data as TransferJob[];
+      setActiveTransfers(transferJobs);
 
       // Calculate transfer rates
       const now = Date.now();
       const newRates: Record<number, number> = {};
-      for (const job of jobs) {
+      for (const job of transferJobs) {
         const prog = job.transferProgress ?? 0;
         const transferred = prog * job.fileSize;
         const prev = prevProgress.current[job.id];
@@ -116,9 +117,11 @@ export function TransferDrawer({ onRefresh }: { onRefresh: () => void }) {
       }
       setTransferRates((prev) => ({ ...prev, ...newRates }));
 
-      // Update group statuses in the main table
-      const hasActive = jobs.some((j) => j.status === "transferring");
-      if (!hasActive && jobs.length > 0) {
+      // Check if all done (no queued or actively transferring)
+      const hasActive = transferJobs.some(
+        (j) => j.status === "transferring" || j.status === "queued"
+      );
+      if (!hasActive && transferJobs.length > 0) {
         es.close();
         eventSourceRef.current = null;
         setTransferring(false);
@@ -129,8 +132,43 @@ export function TransferDrawer({ onRefresh }: { onRefresh: () => void }) {
     es.onerror = () => {
       es.close();
       eventSourceRef.current = null;
+      // Reconnect: check if transfers are still active
+      setTimeout(async () => {
+        try {
+          const status = await fetchTransferStatus();
+          if (status.active) {
+            setActiveTransfers(status.jobs);
+            setTransferring(true);
+            startProgressStream();
+          } else if (status.jobs.length > 0) {
+            setActiveTransfers(status.jobs);
+            setTransferring(false);
+            onRefresh();
+          }
+        } catch {
+          // Server unreachable, give up
+        }
+      }, 2000);
     };
   }, [onRefresh]);
+
+  // Mount initialization: recover in-flight transfers
+  useEffect(() => {
+    fetchTransferStatus().then((status) => {
+      if (status.active) {
+        setActiveTransfers(status.jobs);
+        setTransferring(true);
+        setTransferDrawerOpen(true);
+        startProgressStream();
+      } else if (status.jobs.length > 0) {
+        // Completed/failed from a previous run, show them
+        setActiveTransfers(status.jobs);
+      }
+    }).catch(() => {
+      // Ignore fetch errors on mount
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -240,6 +278,9 @@ export function TransferDrawer({ onRefresh }: { onRefresh: () => void }) {
   const activeCount = activeTransfers.filter(
     (j) => j.status === "transferring"
   ).length;
+  const queuedCount = activeTransfers.filter(
+    (j) => j.status === "queued"
+  ).length;
 
   return (
     <>
@@ -337,6 +378,7 @@ export function TransferDrawer({ onRefresh }: { onRefresh: () => void }) {
                   totalTransferred={totalTransferred}
                   completedCount={completedCount}
                   activeCount={activeCount}
+                  queuedCount={queuedCount}
                   failedCount={failedCount}
                 />
               ) : confirmedSelected.length === 0 ? (
@@ -383,6 +425,22 @@ export function TransferDrawer({ onRefresh }: { onRefresh: () => void }) {
       )}
 
     </AnimatePresence>
+
+      {/* Floating indicator when drawer is closed but transfers are active */}
+      {!transferDrawerOpen && transferring && (activeCount > 0 || queuedCount > 0) && (
+        <button
+          onClick={() => setTransferDrawerOpen(true)}
+          className="fixed bottom-4 right-4 z-40 flex items-center gap-2 px-3 py-2 rounded-lg bg-bg-secondary border border-border shadow-lg hover:bg-bg-hover transition-colors"
+        >
+          <span className="animate-spin inline-block w-3.5 h-3.5 border-2 border-accent/30 border-t-accent rounded-full" />
+          <span className="text-xs text-text-primary font-medium">
+            {activeCount + queuedCount} transferring
+          </span>
+          <span className="text-xs text-text-muted">
+            {(overallProgress * 100).toFixed(0)}%
+          </span>
+        </button>
+      )}
 
       {/* Add Destination Modal */}
       {showAddDest && (
@@ -652,6 +710,7 @@ function TransferProgress({
   totalTransferred,
   completedCount,
   activeCount,
+  queuedCount,
   failedCount,
 }: {
   jobs: TransferJob[];
@@ -661,6 +720,7 @@ function TransferProgress({
   totalTransferred: number;
   completedCount: number;
   activeCount: number;
+  queuedCount: number;
   failedCount: number;
 }) {
   const totalRate = Object.values(rates).reduce(
@@ -684,6 +744,11 @@ function TransferProgress({
             {activeCount > 0 && (
               <span className="ml-2">
                 {activeCount} active
+              </span>
+            )}
+            {queuedCount > 0 && (
+              <span className="ml-2">
+                {queuedCount} queued
               </span>
             )}
           </span>
@@ -714,6 +779,8 @@ function TransferProgress({
                   <span className="text-success text-xs">&#10003;</span>
                 ) : job.status === "failed" ? (
                   <span className="text-error text-xs">&#10007;</span>
+                ) : job.status === "queued" ? (
+                  <span className="text-text-muted text-xs">&#8943;</span>
                 ) : (
                   <span className="animate-spin inline-block w-3 h-3 border border-accent/30 border-t-accent rounded-full" />
                 )}
@@ -731,6 +798,10 @@ function TransferProgress({
                     ) : job.status === "failed" ? (
                       <span className="text-error">
                         {job.transferError || "Failed"}
+                      </span>
+                    ) : job.status === "queued" ? (
+                      <span className="text-text-muted">
+                        {formatSize(job.fileSize)} &middot; queued
                       </span>
                     ) : (
                       <>
