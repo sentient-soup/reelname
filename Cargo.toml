@@ -1,0 +1,74 @@
+[package]
+name = "reelname"
+version = "0.1.0"
+edition = "2024"
+description = "Media file scanner, matcher, and organizer with Iced GUI"
+authors = ["ReelName"]
+
+[dependencies]
+# GUI
+iced = { version = "0.14", features = ["image", "tokio"] }
+
+# Database
+rusqlite = { version = "0.33", features = ["bundled"] }
+
+# HTTP
+reqwest = { version = "0.12", default-features = false, features = ["json", "native-tls"] }
+
+# SSH/SFTP
+russh = "0.48"
+russh-sftp = "2.0"
+
+# Regex
+regex = "1"
+
+# String similarity
+strsim = "0.11"
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# File walking
+walkdir = "2"
+
+# System tray
+tray-icon = "0.19"
+muda = "0.16"
+
+# Async runtime
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "sync", "fs"] }
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = "0.3"
+
+# Image
+image = { version = "0.25", features = ["jpeg", "png"] }
+
+# Directories
+dirs = "6"
+
+# Chrono for timestamps
+chrono = { version = "0.4", features = ["serde"] }
+
+# URL encoding
+urlencoding = "2"
+
+# Async trait (for russh Handler)
+async-trait = "0.1"
+
+# SSH keys
+russh-keys = "0.48"
+ssh-key = "0.6"
+
+[build-dependencies]
+winresource = "0.1"
+chrono = "0.4"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"
