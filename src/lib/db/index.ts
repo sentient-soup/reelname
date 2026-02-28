@@ -14,10 +14,18 @@ function getDataDir(): string {
 export const DATA_DIR = getDataDir();
 const DB_PATH = path.join(DATA_DIR, "reelname.db");
 
-// Ensure data directory exists
-fs.mkdirSync(DATA_DIR, { recursive: true });
+// During the Next.js build phase, parallel workers race to open the same
+// SQLite file and set journal_mode=WAL, causing SQLITE_BUSY on macOS even
+// with busy_timeout set.  Use an in-memory database instead — the build
+// workers only import the module for route analysis; handlers never run.
+const isBuildPhase = process.env.NEXT_PHASE === "phase-production-build";
 
-const sqlite = new Database(DB_PATH);
+// Ensure data directory exists (skipped during build; no real file needed)
+if (!isBuildPhase) {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+}
+
+const sqlite = new Database(isBuildPhase ? ":memory:" : DB_PATH);
 // Set busy_timeout first so subsequent pragmas and initializeDatabase()
 // retry instead of immediately throwing SQLITE_BUSY when multiple
 // Next.js build workers open the same database in parallel.
