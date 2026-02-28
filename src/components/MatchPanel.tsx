@@ -1,10 +1,12 @@
+"use client";
+
 import { useAppStore } from "@/lib/store";
 import { updateGroup, searchTmdb } from "@/lib/api";
 import { useToastStore } from "./Toast";
 import { useState } from "react";
 import { StatusBadge, FileCategoryBadge } from "./StatusBadge";
 import { EpisodeResolveModal } from "./EpisodeResolveModal";
-import type { MatchCandidate } from "@/lib/types";
+import type { MatchCandidate } from "@/lib/db/schema";
 import type { JobWithPreview } from "@/lib/store";
 
 const TMDB_IMG_BASE = "https://image.tmdb.org/t/p/w185";
@@ -80,7 +82,7 @@ export function MatchPanel({ onRefresh }: { onRefresh: () => void }) {
       manualQuery,
       activeGroup.mediaType !== "unknown" ? activeGroup.mediaType : undefined,
       activeGroup.parsedYear ?? undefined
-    ) as { results?: MatchCandidate[] };
+    );
     setSearchResults(data.results || []);
     setSearching(false);
   };

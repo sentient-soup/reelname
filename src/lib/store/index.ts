@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { Job, Group, MatchCandidate, Destination } from "@/lib/types";
+import type { Job, Group, MatchCandidate, Destination } from "@/lib/db/schema";
 
 export type JobWithPreview = Job & {
   previewName?: string | null;

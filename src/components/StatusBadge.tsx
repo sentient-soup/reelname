@@ -1,3 +1,5 @@
+"use client";
+
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   scanned: { label: "Scanned", color: "bg-status-scanned" },
   matched: { label: "Matched", color: "bg-status-matched" },

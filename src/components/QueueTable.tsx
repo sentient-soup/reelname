@@ -1,3 +1,5 @@
+"use client";
+
 import { useAppStore, type GroupWithJobs, type JobWithPreview } from "@/lib/store";
 import { fetchGroup } from "@/lib/api";
 import { StatusBadge, MediaTypeBadge, FileCategoryBadge } from "./StatusBadge";

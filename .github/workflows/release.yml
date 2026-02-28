@@ -1,0 +1,131 @@
+name: Build & Release
+
+on:
+  push:
+    branches: [release]
+
+permissions:
+  contents: write
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.pkg.outputs.version }}
+      tag: ${{ steps.pkg.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: pkg
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: version
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: win
+            artifact: "dist-electron/*.exe"
+            required: true
+          - os: macos-latest
+            platform: mac
+            artifact: "dist-electron/*.dmg"
+            required: false
+          - os: ubuntu-latest
+            platform: linux
+            artifact: "dist-electron/*.{AppImage,deb}"
+            required: false
+    runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ matrix.required == false }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: latest
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Electron app
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/build-electron.js --platform=${{ matrix.platform }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.platform }}
+          path: |
+            dist-electron/*.exe
+            dist-electron/*.exe.blockmap
+            dist-electron/*.dmg
+            dist-electron/*.dmg.blockmap
+            dist-electron/*.AppImage
+            dist-electron/*.deb
+            dist-electron/latest*.yml
+          if-no-files-found: ignore
+
+  release:
+    needs: [version, build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: List artifacts
+        run: find artifacts -type f | head -30
+
+      - name: Generate changelog
+        id: changelog
+        shell: bash
+        run: |
+          # Get commits since last tag (or all commits if no tags)
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ -n "$LAST_TAG" ]; then
+            COMMITS=$(git log "$LAST_TAG"..HEAD --pretty=format:"- %s" --no-merges)
+          else
+            COMMITS=$(git log --pretty=format:"- %s" --no-merges -20)
+          fi
+          # Write to file for the release body
+          cat > release-notes.md << 'HEADER'
+          ## What's New
+
+          HEADER
+          echo "$COMMITS" >> release-notes.md
+          cat >> release-notes.md << 'FOOTER'
+
+          ---
+
+          ## Install
+
+          | Platform | File |
+          |---|---|
+          | Windows | `ReelName Setup X.X.X.exe` |
+          | macOS | `ReelName-X.X.X.dmg` |
+          | Linux | `ReelName-X.X.X.AppImage` or `.deb` |
+          FOOTER
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.version.outputs.tag }}
+          name: ReelName ${{ needs.version.outputs.tag }}
+          body_path: release-notes.md
+          draft: true
+          files: artifacts/*

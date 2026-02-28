@@ -1,3 +1,5 @@
+"use client";
+
 import { useEffect } from "react";
 import { useAppStore } from "@/lib/store";
 import { fetchGroup } from "@/lib/api";
