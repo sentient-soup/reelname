@@ -30,13 +30,17 @@ jobs:
           - os: windows-latest
             platform: win
             artifact: "dist-electron/*.exe"
+            required: true
           - os: macos-latest
             platform: mac
             artifact: "dist-electron/*.dmg"
+            required: false
           - os: ubuntu-latest
             platform: linux
             artifact: "dist-electron/*.{AppImage,deb}"
+            required: false
     runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ matrix.required == false }}
     steps:
       - uses: actions/checkout@v4
 
