@@ -58,9 +58,16 @@ function flattenNodeModules(nmDir) {
         continue;
       }
 
-      // Skip if already exists at top level (first copy wins — top-level
-      // packages from the original output take priority)
-      if (fs.existsSync(destPkg)) continue;
+      // Skip if already exists at top level as a real (non-symlink) entry.
+      // If it's a symlink (typically pointing into .pnpm), replace it with
+      // real content so it won't break after .pnpm is removed below.
+      try {
+        if (!fs.lstatSync(destPkg).isSymbolicLink()) continue;
+        fs.rmSync(destPkg, { recursive: true, force: true });
+      } catch (err) {
+        if (err.code !== "ENOENT") throw err;
+        // destPkg doesn't exist — proceed to copy
+      }
 
       // Handle scoped packages (@org/name)
       if (pkg.name.startsWith("@")) {
