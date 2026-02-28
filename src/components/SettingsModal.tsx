@@ -1,9 +1,8 @@
-"use client";
-
 import { useAppStore } from "@/lib/store";
 import { updateSettings } from "@/lib/api";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { open } from "@tauri-apps/plugin-dialog";
 
 export function SettingsModal() {
   const { settingsOpen, setSettingsOpen, settings, setSettings } = useAppStore();
@@ -17,6 +16,17 @@ export function SettingsModal() {
     const updated = await updateSettings(form);
     setSettings(updated);
     setSettingsOpen(false);
+  };
+
+  const handleBrowseScanPath = async () => {
+    const selected = await open({
+      directory: true,
+      multiple: false,
+      title: "Select scan directory",
+    });
+    if (selected) {
+      setForm({ ...form, scan_path: selected as string });
+    }
   };
 
   return (
@@ -54,13 +64,21 @@ export function SettingsModal() {
                   <label className="block text-xs font-medium text-text-muted mb-1">
                     Scan Path
                   </label>
-                  <input
-                    type="text"
-                    value={form.scan_path || ""}
-                    onChange={(e) => setForm({ ...form, scan_path: e.target.value })}
-                    placeholder="/path/to/media/folder"
-                    className="w-full px-3 py-2 text-sm rounded-md bg-bg-tertiary border border-border text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent"
-                  />
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={form.scan_path || ""}
+                      onChange={(e) => setForm({ ...form, scan_path: e.target.value })}
+                      placeholder="/path/to/media/folder"
+                      className="flex-1 px-3 py-2 text-sm rounded-md bg-bg-tertiary border border-border text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent"
+                    />
+                    <button
+                      onClick={handleBrowseScanPath}
+                      className="px-3 py-2 text-sm rounded-md bg-bg-tertiary border border-border text-text-secondary hover:bg-bg-hover transition-colors"
+                    >
+                      Browse
+                    </button>
+                  </div>
                 </div>
 
                 <div>
@@ -94,32 +112,6 @@ export function SettingsModal() {
                     }
                     className="w-full px-3 py-2 text-sm rounded-md bg-bg-tertiary border border-border text-text-primary focus:outline-none focus:border-accent"
                   />
-                </div>
-
-                <hr className="border-border" />
-
-                <div>
-                  <label className="block text-xs font-medium text-text-muted mb-1">
-                    Data Directory
-                  </label>
-                  <div className="text-xs text-text-muted mb-1 font-mono truncate" title={settings.data_dir}>
-                    Current: {settings.data_dir || "default"}
-                  </div>
-                  <input
-                    type="text"
-                    value={form.data_dir || ""}
-                    onChange={(e) => setForm({ ...form, data_dir: e.target.value })}
-                    placeholder="Leave empty for default location"
-                    className="w-full px-3 py-2 text-sm rounded-md bg-bg-tertiary border border-border text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent"
-                  />
-                  {settings.configured_data_dir && settings.configured_data_dir !== settings.data_dir && (
-                    <p className="mt-1 text-xs text-warning">
-                      Restart required — pending: {settings.configured_data_dir}
-                    </p>
-                  )}
-                  <p className="mt-1 text-xs text-text-muted">
-                    Where the database and config are stored. Requires restart to take effect.
-                  </p>
                 </div>
 
                 <hr className="border-border" />

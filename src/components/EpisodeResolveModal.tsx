@@ -1,5 +1,3 @@
-"use client";
-
 import { useState, useEffect, useCallback } from "react";
 import { fetchSeasons, fetchSeasonEpisodes, updateJob } from "@/lib/api";
 import { useToastStore } from "./Toast";
@@ -38,15 +36,15 @@ export function EpisodeResolveModal({ job, groupId, onClose, onSaved }: Props) {
     let cancelled = false;
     (async () => {
       setLoadingSeasons(true);
-      const data = await fetchSeasons(groupId);
+      const seasons = await fetchSeasons(groupId);
       if (cancelled) return;
-      setSeasons(data.seasons || []);
+      setSeasons(seasons as unknown as TmdbSeason[]);
       setLoadingSeasons(false);
 
       // Default to the job's current season, or Season 0 for specials
       const defaultSeason =
         job.fileCategory === "special" ? 0 : (job.parsedSeason ?? 1);
-      const available = (data.seasons || []) as TmdbSeason[];
+      const available = seasons as unknown as TmdbSeason[];
       const match = available.find((s) => s.season_number === defaultSeason);
       setSelectedSeason(match ? defaultSeason : available[0]?.season_number ?? null);
     })();
@@ -59,9 +57,9 @@ export function EpisodeResolveModal({ job, groupId, onClose, onSaved }: Props) {
     let cancelled = false;
     (async () => {
       setLoadingEpisodes(true);
-      const data = await fetchSeasonEpisodes(groupId, selectedSeason);
+      const episodes = await fetchSeasonEpisodes(groupId, selectedSeason);
       if (cancelled) return;
-      setEpisodes(data.episodes || []);
+      setEpisodes(episodes as unknown as TmdbEpisode[]);
       setLoadingEpisodes(false);
     })();
     return () => { cancelled = true; };

@@ -1,8 +1,8 @@
-"use client";
-
 import { useAppStore } from "@/lib/store";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect, useRef, useCallback } from "react";
+import { listen } from "@tauri-apps/api/event";
+import type { UnlistenFn } from "@tauri-apps/api/event";
 import {
   fetchDestinations,
   createDestination,
@@ -68,7 +68,7 @@ export function TransferDrawer({ onRefresh }: { onRefresh: () => void }) {
     {}
   );
   const prevProgress = useRef<Record<number, { progress: number; time: number }>>({});
-  const eventSourceRef = useRef<EventSource | null>(null);
+  const unlistenRef = useRef<UnlistenFn | null>(null);
 
   useEffect(() => {
     if (transferDrawerOpen) {
@@ -76,20 +76,22 @@ export function TransferDrawer({ onRefresh }: { onRefresh: () => void }) {
     }
   }, [transferDrawerOpen, setDestinations]);
 
-  // Connect to SSE when transferring
+  // Listen for Tauri transfer-progress events
   const startProgressStream = useCallback(() => {
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
+    // Clean up any existing listener
+    if (unlistenRef.current) {
+      unlistenRef.current();
+      unlistenRef.current = null;
     }
 
-    const es = new EventSource("/api/transfer/progress");
-    eventSourceRef.current = es;
+    listen<TransferJob[] | { done: boolean }>("transfer-progress", (event) => {
+      const data = event.payload;
 
-    es.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      if (data.done) {
-        es.close();
-        eventSourceRef.current = null;
+      if ("done" in data && data.done) {
+        if (unlistenRef.current) {
+          unlistenRef.current();
+          unlistenRef.current = null;
+        }
         setTransferring(false);
         onRefresh();
         return;
@@ -116,27 +118,26 @@ export function TransferDrawer({ onRefresh }: { onRefresh: () => void }) {
       }
       setTransferRates((prev) => ({ ...prev, ...newRates }));
 
-      // Update group statuses in the main table
+      // Check if all transfers are done
       const hasActive = jobs.some((j) => j.status === "transferring");
       if (!hasActive && jobs.length > 0) {
-        es.close();
-        eventSourceRef.current = null;
+        if (unlistenRef.current) {
+          unlistenRef.current();
+          unlistenRef.current = null;
+        }
         setTransferring(false);
         onRefresh();
       }
-    };
-
-    es.onerror = () => {
-      es.close();
-      eventSourceRef.current = null;
-    };
+    }).then((unlisten) => {
+      unlistenRef.current = unlisten;
+    });
   }, [onRefresh]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (eventSourceRef.current) {
-        eventSourceRef.current.close();
+      if (unlistenRef.current) {
+        unlistenRef.current();
       }
     };
   }, []);
@@ -202,9 +203,9 @@ export function TransferDrawer({ onRefresh }: { onRefresh: () => void }) {
     setActiveTransfers([]);
     prevProgress.current = {};
     setTransferRates({});
-    await startTransfer({ groupIds: ids }, selectedDest);
-    // Start listening for progress
+    // Start listening before triggering transfer
     startProgressStream();
+    await startTransfer({ groupIds: ids }, selectedDest);
   };
 
   // Count confirmed groups
@@ -329,7 +330,7 @@ export function TransferDrawer({ onRefresh }: { onRefresh: () => void }) {
             {/* Transfer action / progress area */}
             <div className="flex-1 flex flex-col overflow-hidden">
               {transferring || activeTransfers.length > 0 ? (
-                <TransferProgress
+                <TransferProgressPanel
                   jobs={activeTransfers}
                   rates={transferRates}
                   overallProgress={overallProgress}
@@ -644,15 +645,15 @@ function AddDestinationModal({
   );
 }
 
-function TransferProgress({
+function TransferProgressPanel({
   jobs,
   rates,
   overallProgress,
   totalSize,
   totalTransferred,
-  completedCount,
+  completedCount: _completedCount,
   activeCount,
-  failedCount,
+  failedCount: _failedCount,
 }: {
   jobs: TransferJob[];
   rates: Record<number, number>;

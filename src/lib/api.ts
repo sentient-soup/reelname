@@ -1,67 +1,68 @@
-// Client-side API helpers
+// Client-side API helpers — Tauri invoke() based
+import { invoke } from "@tauri-apps/api/core";
+import type { Job, MatchCandidate, Destination } from "@/lib/types";
+import type { GroupWithJobs } from "@/lib/store";
 
 // ── Groups ──────────────────────────────────────────────
 
-export async function fetchGroups(params?: Record<string, string>) {
-  const searchParams = new URLSearchParams();
-  if (params) {
-    for (const [key, value] of Object.entries(params)) {
-      if (value) searchParams.set(key, value);
-    }
-  }
-  const res = await fetch(`/api/groups?${searchParams}`);
-  return res.json();
+export interface GroupsResponse {
+  groups: GroupWithJobs[];
+  total: number;
 }
 
-export async function fetchGroup(id: number) {
-  const res = await fetch(`/api/groups/${id}`);
-  return res.json();
-}
-
-export async function updateGroup(id: number, updates: Record<string, unknown>) {
-  const res = await fetch(`/api/groups/${id}`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(updates),
+export async function fetchGroups(params?: Record<string, string>): Promise<GroupsResponse> {
+  return invoke<GroupsResponse>("get_groups", {
+    status: params?.status || null,
+    mediaType: params?.mediaType || null,
+    search: params?.search || null,
+    sortBy: params?.sortBy || null,
+    sortDir: params?.sortDir || null,
+    page: params?.page ? parseInt(params.page, 10) : null,
+    limit: params?.limit ? parseInt(params.limit, 10) : null,
   });
-  return res.json();
 }
 
-export async function deleteGroup(id: number) {
-  const res = await fetch(`/api/groups/${id}`, { method: "DELETE" });
-  return res.json();
+export async function fetchGroup(id: number): Promise<GroupWithJobs> {
+  return invoke<GroupWithJobs>("get_group", { id });
 }
 
-// ── Jobs (kept for backward compat) ─────────────────────
-
-export async function fetchJobs(params?: Record<string, string>) {
-  const searchParams = new URLSearchParams();
-  if (params) {
-    for (const [key, value] of Object.entries(params)) {
-      if (value) searchParams.set(key, value);
-    }
-  }
-  const res = await fetch(`/api/jobs?${searchParams}`);
-  return res.json();
+export async function updateGroup(id: number, updates: Record<string, unknown>): Promise<void> {
+  return invoke("update_group", { id, updates });
 }
 
-export async function fetchJob(id: number) {
-  const res = await fetch(`/api/jobs/${id}`);
-  return res.json();
+export async function deleteGroup(id: number): Promise<void> {
+  return invoke("delete_group", { id });
 }
 
-export async function updateJob(id: number, updates: Record<string, unknown>) {
-  const res = await fetch(`/api/jobs/${id}`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(updates),
+// ── Jobs ────────────────────────────────────────────────
+
+export interface JobsResponse {
+  jobs: Job[];
+  total: number;
+}
+
+export async function fetchJobs(params?: Record<string, string>): Promise<JobsResponse> {
+  return invoke<JobsResponse>("get_jobs", {
+    status: params?.status || null,
+    mediaType: params?.mediaType || null,
+    search: params?.search || null,
+    sortBy: params?.sortBy || null,
+    sortDir: params?.sortDir || null,
+    page: params?.page ? parseInt(params.page, 10) : null,
+    limit: params?.limit ? parseInt(params.limit, 10) : null,
   });
-  return res.json();
 }
 
-export async function deleteJob(id: number) {
-  const res = await fetch(`/api/jobs/${id}`, { method: "DELETE" });
-  return res.json();
+export async function fetchJob(id: number): Promise<Job> {
+  return invoke<Job>("get_job", { id });
+}
+
+export async function updateJob(id: number, updates: Record<string, unknown>): Promise<void> {
+  return invoke("update_job", { id, updates });
+}
+
+export async function deleteJob(id: number): Promise<void> {
+  return invoke("delete_job", { id });
 }
 
 // ── Bulk actions ────────────────────────────────────────
@@ -69,90 +70,99 @@ export async function deleteJob(id: number) {
 export async function bulkAction(
   action: string,
   opts: { jobIds?: number[]; groupIds?: number[] }
-) {
-  const res = await fetch("/api/jobs/bulk", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ action, ...opts }),
+): Promise<void> {
+  return invoke("bulk_action", {
+    action,
+    jobIds: opts.jobIds || null,
+    groupIds: opts.groupIds || null,
   });
-  return res.json();
 }
 
 // ── Scan ────────────────────────────────────────────────
 
-export async function triggerScan(path?: string) {
-  const res = await fetch("/api/scan", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(path ? { path } : {}),
-  });
-  return res.json();
+export interface ScanResult {
+  addedGroups?: number;
+  addedFiles?: number;
+  matched?: number;
+  ambiguous?: number;
+  error?: string;
+  matchError?: string;
+}
+
+export async function triggerScan(path?: string): Promise<ScanResult> {
+  return invoke<ScanResult>("scan_directory", { path: path || null });
 }
 
 // ── Match ───────────────────────────────────────────────
 
-export async function triggerMatch() {
-  const res = await fetch("/api/match", { method: "POST" });
-  return res.json();
+export interface MatchResult {
+  matched?: number;
+  ambiguous?: number;
+  error?: string;
+}
+
+export async function triggerMatch(): Promise<MatchResult> {
+  return invoke<MatchResult>("match_groups");
 }
 
 // ── Settings ────────────────────────────────────────────
 
-export async function fetchSettings() {
-  const res = await fetch("/api/settings");
-  return res.json();
+export async function fetchSettings(): Promise<Record<string, string>> {
+  return invoke<Record<string, string>>("get_settings");
 }
 
-export async function updateSettings(updates: Record<string, string>) {
-  const res = await fetch("/api/settings", {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(updates),
-  });
-  return res.json();
+export async function updateSettings(updates: Record<string, string>): Promise<Record<string, string>> {
+  return invoke<Record<string, string>>("update_settings", { updates });
 }
 
 // ── TMDB Search ─────────────────────────────────────────
 
-export async function searchTmdb(query: string, mediaType?: string, year?: number) {
-  const params = new URLSearchParams({ query });
-  if (mediaType) params.set("mediaType", mediaType);
-  if (year) params.set("year", String(year));
-  const res = await fetch(`/api/search?${params}`);
-  return res.json();
+export interface TmdbSearchResponse {
+  results?: MatchCandidate[];
+}
+
+export async function searchTmdb(query: string, mediaType?: string, year?: number): Promise<TmdbSearchResponse> {
+  return invoke<TmdbSearchResponse>("search_tmdb", {
+    query,
+    mediaType: mediaType || null,
+    year: year || null,
+  });
 }
 
 // ── Seasons / Episodes ─────────────────────────────────
 
-export async function fetchSeasons(groupId: number) {
-  const res = await fetch(`/api/groups/${groupId}/seasons`);
-  return res.json();
+export interface Season {
+  seasonNumber: number;
+  name: string;
+  episodeCount: number;
 }
 
-export async function fetchSeasonEpisodes(groupId: number, season: number) {
-  const res = await fetch(`/api/groups/${groupId}/seasons?season=${season}`);
-  return res.json();
+export interface Episode {
+  episodeNumber: number;
+  name: string;
+  overview?: string;
+}
+
+export async function fetchSeasons(groupId: number): Promise<Season[]> {
+  return invoke<Season[]>("get_seasons", { groupId });
+}
+
+export async function fetchSeasonEpisodes(groupId: number, season: number): Promise<Episode[]> {
+  return invoke<Episode[]>("get_season_episodes", { groupId, season });
 }
 
 // ── Destinations ────────────────────────────────────────
 
-export async function fetchDestinations() {
-  const res = await fetch("/api/destinations");
-  return res.json();
+export async function fetchDestinations(): Promise<Destination[]> {
+  return invoke<Destination[]>("get_destinations");
 }
 
-export async function createDestination(data: Record<string, unknown>) {
-  const res = await fetch("/api/destinations", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  });
-  return res.json();
+export async function createDestination(data: Record<string, unknown>): Promise<Destination> {
+  return invoke<Destination>("create_destination", { input: data });
 }
 
-export async function deleteDestination(id: number) {
-  const res = await fetch(`/api/destinations/${id}`, { method: "DELETE" });
-  return res.json();
+export async function deleteDestination(id: number): Promise<void> {
+  return invoke("delete_destination", { id });
 }
 
 export async function testSshConnection(data: {
@@ -163,12 +173,7 @@ export async function testSshConnection(data: {
   sshKeyPassphrase?: string;
   basePath: string;
 }): Promise<{ ok: boolean; error?: string }> {
-  const res = await fetch("/api/destinations/test-connection", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  });
-  return res.json();
+  return invoke<{ ok: boolean; error?: string }>("test_ssh_connection", { input: data });
 }
 
 // ── Transfer ────────────────────────────────────────────
@@ -176,11 +181,10 @@ export async function testSshConnection(data: {
 export async function startTransfer(
   opts: { jobIds?: number[]; groupIds?: number[] },
   destinationId: number
-) {
-  const res = await fetch("/api/transfer", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ...opts, destinationId }),
+): Promise<void> {
+  return invoke("start_transfer", {
+    jobIds: opts.jobIds || null,
+    groupIds: opts.groupIds || null,
+    destinationId,
   });
-  return res.json();
 }

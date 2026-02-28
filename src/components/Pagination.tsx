@@ -1,5 +1,3 @@
-"use client";
-
 import { useAppStore } from "@/lib/store";
 
 export function Pagination({ onRefresh }: { onRefresh: () => void }) {
