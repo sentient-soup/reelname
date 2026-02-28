@@ -1,5 +1,5 @@
 use iced::widget::{column, container, row, stack, Space};
-use iced::{Element, Length, Subscription, Task, Theme};
+use iced::{task, Element, Length, Subscription, Task, Theme};
 use std::collections::HashMap;
 
 use crate::core::parser;
@@ -95,6 +95,7 @@ pub enum Message {
     DestinationsLoaded(Result<Vec<Destination>, String>),
     StartTransfer,
     TransferProgressUpdate(TransferProgress),
+    TransferComplete,
 
     // Bulk
     BulkAction(String),
@@ -109,6 +110,12 @@ pub enum Message {
 
     // Keyboard
     KeyPressed(iced::keyboard::Key, iced::keyboard::Modifiers),
+
+    // Tray
+    TrayShowWindow,
+    TrayQuit,
+    WindowCloseRequested(iced::window::Id),
+    TrayTick,
 }
 
 // ── Init data ──
@@ -173,6 +180,7 @@ pub struct App {
     pub dest_form: HashMap<String, String>,
     pub test_connection_result: Option<String>,
     pub active_transfers: Vec<TransferProgress>,
+    pub transfer_handle: Option<task::Handle>,
 
     // Toast
     pub toasts: Vec<crate::ui::toast::Toast>,
@@ -345,6 +353,7 @@ impl App {
             dest_form: HashMap::new(),
             test_connection_result: None,
             active_transfers: Vec::new(),
+            transfer_handle: None,
             toasts: Vec::new(),
             next_toast_id: 1,
             poster_cache: HashMap::new(),
@@ -378,6 +387,23 @@ impl App {
                 _ => Message::TickToasts, // Ignore other keyboard events; reuse a no-op message
             }
         }));
+
+        // Window close → intercept for minimize-to-tray
+        subs.push(iced::event::listen_with(|event, _status, id| {
+            if let iced::Event::Window(iced::window::Event::CloseRequested) = event {
+                Some(Message::WindowCloseRequested(id))
+            } else {
+                None
+            }
+        }));
+
+        // Poll system tray events
+        if crate::get_tray_menu_ids().is_some() {
+            subs.push(
+                iced::time::every(std::time::Duration::from_millis(200))
+                    .map(|_| Message::TrayTick),
+            );
+        }
 
         Subscription::batch(subs)
     }
@@ -1159,11 +1185,38 @@ impl App {
                 Task::none()
             }
             Message::TestConnection => {
-                // TODO: implement SSH test connection
-                self.test_connection_result = Some("Testing not yet implemented".to_string());
+                self.test_connection_result = Some("Testing...".to_string());
+                let host = self.dest_form.get("ssh_host").cloned().unwrap_or_default();
+                let port: u16 = self
+                    .dest_form
+                    .get("ssh_port")
+                    .and_then(|s| s.parse().ok())
+                    .unwrap_or(22);
+                let user = self.dest_form.get("ssh_user").cloned().unwrap_or_default();
+                let key_path = self.dest_form.get("ssh_key_path").cloned().unwrap_or_default();
+                let passphrase = self.dest_form.get("ssh_key_passphrase").cloned();
+
+                Task::perform(
+                    async move {
+                        transfer::test_ssh_connection(
+                            &host,
+                            port,
+                            &user,
+                            &key_path,
+                            passphrase.as_deref(),
+                        )
+                        .await
+                    },
+                    Message::TestConnectionResult,
+                )
+            }
+            Message::TestConnectionResult(result) => {
+                self.test_connection_result = Some(match result {
+                    Ok(msg) => msg,
+                    Err(e) => e,
+                });
                 Task::none()
             }
-            Message::TestConnectionResult(_) => Task::none(),
             Message::SaveDestination => {
                 let conn = self.conn.clone();
                 let form = self.dest_form.clone();
@@ -1287,22 +1340,20 @@ impl App {
                         return Task::none();
                     }
 
-                    let mut rx = transfer::start_transfers(conn, job_ids, dest_id);
+                    self.active_transfers.clear();
+                    let rx = transfer::start_transfers(conn, job_ids, dest_id);
 
-                    // Spawn a task to forward progress updates
-                    return Task::perform(
-                        async move {
-                            let mut updates = Vec::new();
-                            while let Some(progress) = rx.recv().await {
-                                updates.push(progress);
-                            }
-                            updates
-                        },
-                        |_updates| {
-                            // This is simplified — in practice we'd use a subscription
-                            Message::MatchCompleted(Ok(0)) // Trigger reload
-                        },
-                    );
+                    // Convert mpsc receiver to a stream of Messages
+                    let stream = futures::stream::unfold(rx, |mut rx| async move {
+                        let progress = rx.recv().await?;
+                        Some((Message::TransferProgressUpdate(progress), rx))
+                    });
+
+                    let (task, handle) = Task::stream(stream)
+                        .chain(Task::done(Message::TransferComplete))
+                        .abortable();
+                    self.transfer_handle = Some(handle);
+                    return task;
                 }
                 Task::none()
             }
@@ -1318,6 +1369,14 @@ impl App {
                     self.active_transfers.push(progress);
                 }
                 Task::none()
+            }
+            Message::TransferComplete => {
+                self.transfer_handle = None;
+                self.add_toast(
+                    "Transfers completed".to_string(),
+                    crate::ui::toast::ToastType::Success,
+                );
+                self.reload_groups()
             }
 
             // ── Bulk ──
@@ -1455,6 +1514,47 @@ impl App {
                         }
                     }
                     _ => Task::none(),
+                }
+            }
+
+            // ── Tray ──
+            Message::TrayTick => {
+                if let Some(ids) = crate::get_tray_menu_ids() {
+                    match crate::tray::poll_tray_event(ids) {
+                        Some(crate::tray::TrayAction::ShowWindow) => {
+                            return iced::window::latest()
+                                .and_then(|id| {
+                                    Task::batch([
+                                        iced::window::minimize(id, false),
+                                        iced::window::gain_focus(id),
+                                    ])
+                                });
+                        }
+                        Some(crate::tray::TrayAction::Quit) => {
+                            return iced::exit();
+                        }
+                        None => {}
+                    }
+                }
+                Task::none()
+            }
+            Message::TrayShowWindow => {
+                iced::window::latest()
+                    .and_then(|id| {
+                        Task::batch([
+                            iced::window::minimize(id, false),
+                            iced::window::gain_focus(id),
+                        ])
+                    })
+            }
+            Message::TrayQuit => iced::exit(),
+            Message::WindowCloseRequested(id) => {
+                if crate::get_tray_menu_ids().is_some() {
+                    // Tray exists: minimize to tray instead of closing
+                    iced::window::minimize(id, true)
+                } else {
+                    // No tray: actually close
+                    iced::window::close(id)
                 }
             }
 

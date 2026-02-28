@@ -34,7 +34,9 @@ walkdir = "2"
 
 # System tray
 tray-icon = "0.19"
-muda = "0.16"
+
+# Async streams
+futures = "0.3"
 
 # Async runtime
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "sync", "fs"] }

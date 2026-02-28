@@ -59,26 +59,36 @@ pub fn transfer_drawer<'a>(
                 DestinationType::Ssh => "SSH",
             };
 
-            button(
-                row![
-                    text(&d.name).size(13).color(theme::TEXT_PRIMARY),
-                    Space::new().width(Length::Fill),
-                    text(type_label).size(11).color(theme::TEXT_MUTED),
-                ]
-                .align_y(iced::Alignment::Center),
-            )
-            .padding(Padding::from([8, 12]))
-            .width(Length::Fill)
-            .style(move |_, _| button::Style {
-                background: Some(bg.into()),
-                border: Border {
-                    color: if is_selected { theme::ACCENT } else { theme::BORDER },
-                    width: 1.0,
-                    radius: 6.0.into(),
-                },
-                ..Default::default()
-            })
-            .on_press(Message::SelectDestination(id))
+            row![
+                button(
+                    row![
+                        text(&d.name).size(13).color(theme::TEXT_PRIMARY),
+                        Space::new().width(Length::Fill),
+                        text(type_label).size(11).color(theme::TEXT_MUTED),
+                    ]
+                    .align_y(iced::Alignment::Center),
+                )
+                .padding(Padding::from([8, 12]))
+                .width(Length::Fill)
+                .style(move |_, _| button::Style {
+                    background: Some(bg.into()),
+                    border: Border {
+                        color: if is_selected { theme::ACCENT } else { theme::BORDER },
+                        width: 1.0,
+                        radius: 6.0.into(),
+                    },
+                    ..Default::default()
+                })
+                .on_press(Message::SelectDestination(id)),
+                button(text("✕").size(11).color(theme::TEXT_MUTED))
+                    .padding(Padding::from([8, 6]))
+                    .style(|_, _| button::Style {
+                        background: None,
+                        ..Default::default()
+                    })
+                    .on_press(Message::DeleteDestination(id)),
+            ]
+            .align_y(iced::Alignment::Center)
             .into()
         })
         .collect();
@@ -254,7 +264,7 @@ pub fn add_destination_modal<'a>(
     let is_ssh = dest_type == "ssh";
 
     let mut fields = column![
-        labeled_input("Name", name, Message::DestFieldChanged("name".into(), name.to_string())),
+        labeled_input("Name", name),
         row![
             text("Type:").size(13).color(theme::TEXT_SECONDARY),
             button(text("Local").size(12).color(if !is_ssh { theme::TEXT_PRIMARY } else { theme::TEXT_MUTED }))
@@ -276,17 +286,17 @@ pub fn add_destination_modal<'a>(
         ]
         .spacing(8)
         .align_y(iced::Alignment::Center),
-        labeled_input("Base Path", base_path, Message::DestFieldChanged("base_path".into(), base_path.to_string())),
+        labeled_input("Base Path", base_path),
     ]
     .spacing(10);
 
     if is_ssh {
         fields = fields
-            .push(labeled_input("SSH Host", ssh_host, Message::DestFieldChanged("ssh_host".into(), ssh_host.to_string())))
-            .push(labeled_input("SSH Port", ssh_port, Message::DestFieldChanged("ssh_port".into(), ssh_port.to_string())))
-            .push(labeled_input("Username", ssh_user, Message::DestFieldChanged("ssh_user".into(), ssh_user.to_string())))
-            .push(labeled_input("Key Path", ssh_key_path, Message::DestFieldChanged("ssh_key_path".into(), ssh_key_path.to_string())))
-            .push(labeled_input("Key Passphrase", ssh_key_passphrase, Message::DestFieldChanged("ssh_key_passphrase".into(), ssh_key_passphrase.to_string())));
+            .push(labeled_input("SSH Host", ssh_host))
+            .push(labeled_input("SSH Port", ssh_port))
+            .push(labeled_input("Username", ssh_user))
+            .push(labeled_input("Key Path", ssh_key_path))
+            .push(labeled_input("Key Passphrase", ssh_key_passphrase));
 
         if let Some(result) = test_result {
             fields = fields.push(
@@ -378,7 +388,6 @@ pub fn add_destination_modal<'a>(
 fn labeled_input<'a>(
     label: &str,
     value: &'a str,
-    _on_change: Message,
 ) -> Element<'a, Message> {
     let label = label.to_string();
     let field_name = label.to_lowercase().replace(' ', "_");

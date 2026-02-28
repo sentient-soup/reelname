@@ -491,6 +491,58 @@ async fn mkdir_recursive(sftp: &russh_sftp::client::SftpSession, path: &str) -> 
     Ok(())
 }
 
+/// Test an SSH connection with the given credentials.
+/// Returns Ok with a success message or Err with a descriptive error.
+pub async fn test_ssh_connection(
+    host: &str,
+    port: u16,
+    user: &str,
+    key_path: &str,
+    passphrase: Option<&str>,
+) -> Result<String, String> {
+    if host.is_empty() {
+        return Err("SSH host is required".to_string());
+    }
+    if user.is_empty() {
+        return Err("SSH username is required".to_string());
+    }
+    if key_path.is_empty() {
+        return Err("SSH key path is required".to_string());
+    }
+
+    let result = tokio::time::timeout(std::time::Duration::from_secs(10), async {
+        let config = std::sync::Arc::new(russh::client::Config::default());
+
+        let mut session = russh::client::connect(config, (host, port), SshHandler)
+            .await
+            .map_err(|e| format!("Connection failed: {e}"))?;
+
+        let key_data = tokio::fs::read_to_string(key_path)
+            .await
+            .map_err(|e| format!("Failed to read SSH key: {e}"))?;
+
+        let key_pair = russh_keys::decode_secret_key(&key_data, passphrase)
+            .map_err(|e| format!("Failed to decode SSH key: {e}"))?;
+
+        let auth = session
+            .authenticate_publickey(user, std::sync::Arc::new(key_pair))
+            .await
+            .map_err(|e| format!("Authentication failed: {e}"))?;
+
+        if !auth {
+            return Err("Public key authentication rejected".to_string());
+        }
+
+        Ok("Success: Connected and authenticated".to_string())
+    })
+    .await;
+
+    match result {
+        Ok(inner) => inner,
+        Err(_) => Err("Connection timed out after 10 seconds".to_string()),
+    }
+}
+
 /// Minimal SSH handler for russh.
 struct SshHandler;
 
