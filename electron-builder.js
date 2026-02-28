@@ -50,6 +50,7 @@ module.exports = {
     target: ["AppImage", "deb"],
     icon: "build-resources/icon.png",
     category: "Utility",
+    maintainer: "Josh Hess <joshhess13@gmail.com>",
   },
   afterPack: async (context) => {
     // Manually set the exe icon via rcedit since signAndEditExecutable is false.
