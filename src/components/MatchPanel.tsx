@@ -32,14 +32,14 @@ export function MatchPanel({ onRefresh }: { onRefresh: () => void }) {
 
   if (!activeGroup) {
     return (
-      <div className="w-[420px] border-l border-border bg-bg-secondary flex flex-col h-full overflow-hidden">
+      <div className="hidden md:flex w-[420px] border-l border-border bg-bg-secondary flex-col h-full overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <h2 className="text-sm font-semibold text-text-primary">
             Match Details
           </h2>
           <button
             onClick={() => setMatchPanelOpen(false)}
-            className="text-text-muted hover:text-text-primary text-lg leading-none"
+            className="text-text-muted hover:text-text-primary text-lg leading-none p-1"
           >
             &times;
           </button>
@@ -122,7 +122,7 @@ export function MatchPanel({ onRefresh }: { onRefresh: () => void }) {
   const candidates = activeGroup.candidates || [];
 
   return (
-      <div className="w-[420px] border-l border-border bg-bg-secondary flex flex-col h-full overflow-hidden">
+      <div className="hidden md:flex md:w-[420px] md:border-l border-border bg-bg-secondary flex-col h-full overflow-hidden">
 
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-border">

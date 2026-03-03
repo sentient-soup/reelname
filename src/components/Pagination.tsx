@@ -24,7 +24,7 @@ export function Pagination({ onRefresh }: { onRefresh: () => void }) {
   };
 
   return (
-    <div className="flex items-center justify-between px-6 py-2 border-t border-border bg-bg-secondary/50 text-xs text-text-muted">
+    <div className="flex items-center justify-between px-3 sm:px-6 py-2 border-t border-border bg-bg-secondary/50 text-xs text-text-muted">
       <span>
         Page {page} of {totalPages} ({totalGroups} group{totalGroups !== 1 ? "s" : ""})
       </span>

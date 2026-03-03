@@ -292,10 +292,9 @@ export function TransferDrawer({ onRefresh }: { onRefresh: () => void }) {
           animate={{ y: 0 }}
           exit={{ y: "100%" }}
           transition={{ type: "spring", damping: 25, stiffness: 300 }}
-          className="border-t border-border bg-bg-secondary"
-          style={{ height: transferring || activeTransfers.length > 0 ? "360px" : "340px" }}
+          className="fixed inset-0 z-50 flex flex-col bg-bg-secondary md:relative md:inset-auto md:z-auto md:border-t md:border-border md:h-[360px]"
         >
-          <div className="flex items-center justify-between px-6 py-2 border-b border-border">
+          <div className="flex items-center justify-between px-3 md:px-6 py-2 border-b border-border">
             <h2 className="text-sm font-semibold text-text-primary">
               Transfer{" "}
               {transferring || activeTransfers.length > 0 ? (
@@ -323,9 +322,9 @@ export function TransferDrawer({ onRefresh }: { onRefresh: () => void }) {
             </button>
           </div>
 
-          <div className="flex h-[calc(100%-40px)]">
+          <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
             {/* Destinations list */}
-            <div className="w-72 border-r border-border p-3 overflow-y-auto flex-shrink-0">
+            <div className="w-full md:w-72 border-b md:border-b-0 md:border-r border-border p-3 overflow-y-auto flex-shrink-0">
               <div className="flex items-center justify-between mb-2">
                 <h3 className="text-xs font-semibold uppercase tracking-wider text-text-muted">
                   Destinations
@@ -507,7 +506,7 @@ function AddDestinationModal({
       onClick={onClose}
     >
       <div
-        className="bg-bg-secondary border border-border rounded-lg shadow-xl w-[440px] flex flex-col"
+        className="bg-bg-secondary border border-border rounded-lg shadow-xl w-[calc(100%-32px)] max-w-[440px] max-h-[90vh] overflow-y-auto flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

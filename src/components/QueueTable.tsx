@@ -62,7 +62,7 @@ export function QueueTable({ onRefresh }: { onRefresh: () => void }) {
       <table className="w-full text-sm">
         <thead className="sticky top-0 bg-bg-secondary z-10">
           <tr className="border-b border-border text-left text-text-muted text-xs uppercase tracking-wider">
-            <th className="px-4 py-3 w-8">
+            <th className="px-2 sm:px-4 py-3 w-8">
               <input
                 type="checkbox"
                 checked={allSelected}
@@ -72,21 +72,21 @@ export function QueueTable({ onRefresh }: { onRefresh: () => void }) {
                 className="accent-accent"
               />
             </th>
-            <th className="px-4 py-3 w-16">Type</th>
+            <th className="px-2 sm:px-4 py-3 w-12 sm:w-16">Type</th>
             <th
-              className="px-4 py-3 cursor-pointer hover:text-text-primary"
+              className="px-2 sm:px-4 py-3 cursor-pointer hover:text-text-primary"
               onClick={() => handleSort("folderName")}
             >
               Title <SortIndicator column="folderName" />
             </th>
             <th
-              className="px-4 py-3 w-24 cursor-pointer hover:text-text-primary"
+              className="px-2 sm:px-4 py-3 w-24 cursor-pointer hover:text-text-primary hidden sm:table-cell"
               onClick={() => handleSort("totalFileSize")}
             >
               Size <SortIndicator column="totalFileSize" />
             </th>
             <th
-              className="px-4 py-3 w-28 cursor-pointer hover:text-text-primary"
+              className="px-2 sm:px-4 py-3 w-24 sm:w-28 cursor-pointer hover:text-text-primary"
               onClick={() => handleSort("status")}
             >
               Status <SortIndicator column="status" />
@@ -97,7 +97,7 @@ export function QueueTable({ onRefresh }: { onRefresh: () => void }) {
           {loading ? (
             <tr>
               <td
-                colSpan={5}
+                colSpan={6}
                 className="px-4 py-12 text-center text-text-muted"
               >
                 <span className="animate-spin inline-block w-5 h-5 border-2 border-text-muted/30 border-t-text-muted rounded-full mr-2" />
@@ -107,7 +107,7 @@ export function QueueTable({ onRefresh }: { onRefresh: () => void }) {
           ) : groups.length === 0 ? (
             <tr>
               <td
-                colSpan={5}
+                colSpan={6}
                 className="px-4 py-12 text-center text-text-muted"
               >
                 No groups found. Configure a scan path in Settings and click
@@ -163,7 +163,7 @@ function GroupRow({
         }`}
         onClick={onClick}
       >
-        <td className="px-4 py-2.5" onClick={(e) => e.stopPropagation()}>
+        <td className="px-2 sm:px-4 py-2.5" onClick={(e) => e.stopPropagation()}>
           <input
             type="checkbox"
             checked={isSelected}
@@ -171,18 +171,18 @@ function GroupRow({
             className="accent-accent"
           />
         </td>
-        <td className="px-4 py-2.5">
+        <td className="px-2 sm:px-4 py-2.5">
           <MediaTypeBadge type={group.mediaType} />
         </td>
-        <td className="px-4 py-2.5 max-w-0">
-          <div className="flex items-baseline gap-2">
-            <span className="font-medium text-text-primary truncate">
+        <td className="px-2 sm:px-4 py-2.5 max-w-0">
+          <div className="flex items-baseline gap-1 sm:gap-2">
+            <span className="font-medium text-text-primary truncate text-sm sm:text-sm">
               {group.tmdbTitle || group.parsedTitle || group.folderName}
             </span>
             {year && (
-              <span className="text-xs text-text-muted">({year})</span>
+              <span className="text-xs text-text-muted flex-shrink-0">({year})</span>
             )}
-            <span className="text-xs text-text-muted">
+            <span className="text-xs text-text-muted flex-shrink-0">
               {group.totalFileCount} {group.totalFileCount === 1 ? "file" : "files"}
             </span>
           </div>
@@ -192,10 +192,10 @@ function GroupRow({
             </div>
           )}
         </td>
-        <td className="px-4 py-2.5 text-text-secondary text-xs">
+        <td className="px-2 sm:px-4 py-2.5 text-text-secondary text-xs hidden sm:table-cell">
           {formatSize(group.totalFileSize)}
         </td>
-        <td className="px-4 py-2.5">
+        <td className="px-2 sm:px-4 py-2.5">
           <StatusBadge status={group.status} />
         </td>
       </tr>
@@ -219,11 +219,11 @@ function FileRow({ job }: { job: JobWithPreview }) {
 
   return (
     <tr className="border-b border-border/20 bg-bg-primary/30">
-      <td className="px-4 py-1.5" />
-      <td className="px-4 py-1.5">
+      <td className="px-2 sm:px-4 py-1.5" />
+      <td className="px-2 sm:px-4 py-1.5">
         <FileCategoryBadge category={job.fileCategory || "episode"} />
       </td>
-      <td className="px-4 py-1.5 max-w-0">
+      <td className="px-2 sm:px-4 py-1.5 max-w-0">
         <div className="flex items-center gap-2">
           {seLabel && (
             <span className="font-mono text-xs text-text-muted w-14 flex-shrink-0">
@@ -250,10 +250,10 @@ function FileRow({ job }: { job: JobWithPreview }) {
           </div>
         </div>
       </td>
-      <td className="px-4 py-1.5 text-text-muted text-xs">
+      <td className="px-2 sm:px-4 py-1.5 text-text-muted text-xs hidden sm:table-cell">
         {formatSize(job.fileSize)}
       </td>
-      <td className="px-4 py-1.5">
+      <td className="px-2 sm:px-4 py-1.5">
         <StatusBadge status={job.status} />
       </td>
     </tr>

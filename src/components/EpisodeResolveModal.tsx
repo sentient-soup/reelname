@@ -111,7 +111,7 @@ export function EpisodeResolveModal({ job, groupId, onClose, onSaved }: Props) {
       onClick={onClose}
     >
       <div
-        className="bg-bg-secondary border border-border rounded-lg shadow-xl w-[520px] max-h-[80vh] flex flex-col"
+        className="bg-bg-secondary border border-border rounded-lg shadow-xl w-[calc(100%-32px)] max-w-[520px] max-h-[80vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

@@ -97,7 +97,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   activeGroupId: null,
   activeGroup: null,
 
-  matchPanelOpen: true,
+  matchPanelOpen: false,
   settingsOpen: false,
   transferDrawerOpen: false,
 
