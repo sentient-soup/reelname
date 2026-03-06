@@ -22,6 +22,18 @@ interface TransferJob {
   destinationPath: string | null;
 }
 
+function useIsMobile(breakpoint = 768) {
+  const [mobile, setMobile] = useState(false);
+  useEffect(() => {
+    const mql = window.matchMedia(`(max-width: ${breakpoint - 1}px)`);
+    setMobile(mql.matches);
+    const handler = (e: MediaQueryListEvent) => setMobile(e.matches);
+    mql.addEventListener("change", handler);
+    return () => mql.removeEventListener("change", handler);
+  }, [breakpoint]);
+  return mobile;
+}
+
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -37,6 +49,7 @@ function formatRate(bytesPerSec: number): string {
 }
 
 export function TransferDrawer({ onRefresh }: { onRefresh: () => void }) {
+  const isMobile = useIsMobile();
   const {
     transferDrawerOpen,
     setTransferDrawerOpen,
@@ -282,6 +295,11 @@ export function TransferDrawer({ onRefresh }: { onRefresh: () => void }) {
     (j) => j.status === "queued"
   ).length;
 
+  // Mobile: fullscreen overlay. Desktop: bottom drawer with fixed height.
+  const drawerStyle: React.CSSProperties = isMobile
+    ? { position: "fixed", inset: 0, zIndex: 50 }
+    : { position: "relative", height: 360, borderTop: "1px solid var(--color-border)" };
+
   return (
     <>
     <AnimatePresence>
@@ -292,7 +310,8 @@ export function TransferDrawer({ onRefresh }: { onRefresh: () => void }) {
           animate={{ y: 0 }}
           exit={{ y: "100%" }}
           transition={{ type: "spring", damping: 25, stiffness: 300 }}
-          className="fixed inset-0 z-50 flex flex-col bg-bg-secondary md:relative md:inset-auto md:z-auto md:border-t md:border-border md:h-[360px]"
+          className="flex flex-col bg-bg-secondary"
+          style={drawerStyle}
         >
           <div className="flex items-center justify-between px-3 md:px-6 py-2 border-b border-border">
             <h2 className="text-sm font-semibold text-text-primary">
@@ -322,9 +341,9 @@ export function TransferDrawer({ onRefresh }: { onRefresh: () => void }) {
             </button>
           </div>
 
-          <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
+          <div className={`flex ${isMobile ? "flex-col" : "flex-row"} flex-1 overflow-hidden`}>
             {/* Destinations list */}
-            <div className="w-full md:w-72 border-b md:border-b-0 md:border-r border-border p-3 overflow-y-auto flex-shrink-0">
+            <div className={`${isMobile ? "w-full border-b" : "w-72 border-r"} border-border p-3 overflow-y-auto flex-shrink-0`}>
               <div className="flex items-center justify-between mb-2">
                 <h3 className="text-xs font-semibold uppercase tracking-wider text-text-muted">
                   Destinations

@@ -7,7 +7,6 @@ import { Header } from "@/components/Header";
 import { Filters } from "@/components/Filters";
 import { QueueTable } from "@/components/QueueTable";
 import { MatchPanel } from "@/components/MatchPanel";
-import { MobileMatchPanel } from "@/components/MobileMatchPanel";
 import { SettingsModal } from "@/components/SettingsModal";
 import { TransferDrawer } from "@/components/TransferDrawer";
 import { Pagination } from "@/components/Pagination";
@@ -113,12 +112,9 @@ export default function Dashboard() {
           <QueueTable onRefresh={loadGroups} />
           <Pagination onRefresh={loadGroups} />
         </div>
-        {/* Desktop sidebar — hidden on mobile via the component itself */}
         <MatchPanel onRefresh={loadGroups} />
       </div>
       <TransferDrawer onRefresh={loadGroups} />
-      {/* Mobile match overlay — outside overflow-hidden so z-index works */}
-      <MobileMatchPanel onRefresh={loadGroups} />
       <SettingsModal />
       <ToastContainer />
     </div>
