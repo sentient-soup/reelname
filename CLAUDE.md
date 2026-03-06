@@ -11,6 +11,7 @@ pnpm install          # Install dependencies
 pnpm dev              # Dev server (Turbopack) -- DO NOT run from agent sessions
 pnpm build            # Production build
 pnpm lint             # ESLint
+pnpm test             # Run unit tests (vitest)
 npx tsc --noEmit      # Typecheck (safe to run)
 pnpm db:push          # Push Drizzle schema to SQLite
 pnpm electron:dev     # Launch Electron tray wrapper (dev)
@@ -82,6 +83,14 @@ Key files: `electron/main.js` (tray/lifecycle), `scripts/build-electron.js` (bui
 
 **Portable data**: `REELNAME_DATA_DIR` env var controls the SQLite database location. In desktop mode, Electron sets this to platform-appropriate app data.
 
+## Testing
+
+- **Framework**: Vitest. Config in `vitest.config.ts`.
+- **Location**: All tests live in `tests/` (outside `src/`). Do NOT put tests inside `src/`.
+- **Scope**: Only test what is explicitly requested. No coverage metrics.
+- **Running**: `pnpm test` runs all tests. `npx vitest run tests/parser.test.ts` for a single file.
+- **Style**: Keep tests lightweight and meaningful. Group related assertions with `describe` blocks.
+
 ## Conventions
 
 - **Versioning**: Increment the patch version in `package.json` when actual code changes (e.g. `0.2.0` → `0.2.1`). Do NOT bump for documentation (markdown files), CI/CD workflows, or other non-code changes.
@@ -114,3 +123,4 @@ Key files: `electron/main.js` (tray/lifecycle), `scripts/build-electron.js` (bui
 | `electron/main.js` | Electron tray icon, server lifecycle, logging |
 | `scripts/build-electron.js` | Electron build pipeline (flatten, prune, bundle) |
 | `electron-builder.js` | electron-builder config + afterPack icon hook |
+| `tests/parser.test.ts` | Filename parsing unit tests |

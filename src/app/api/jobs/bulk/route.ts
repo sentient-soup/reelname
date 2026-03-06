@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { jobs, groups, matchCandidates } from "@/lib/db/schema";
 import { eq, inArray } from "drizzle-orm";
+import { parseFolderName } from "@/lib/parser";
 
 export async function POST(request: Request) {
   const body = await request.json();
@@ -56,19 +57,27 @@ export async function POST(request: Request) {
         break;
 
       case "rematch":
-        db.update(groups)
-          .set({
-            status: "scanned",
-            tmdbId: null,
-            tmdbTitle: null,
-            tmdbYear: null,
-            tmdbPosterPath: null,
-            matchConfidence: null,
-            updatedAt: now,
-          })
-          .where(inArray(groups.id, groupIds))
-          .run();
         for (const gid of groupIds) {
+          const group = db.select().from(groups).where(eq(groups.id, gid)).get();
+          if (!group) continue;
+
+          // Re-parse folder name to pick up parser improvements
+          const parsed = parseFolderName(group.folderName);
+
+          db.update(groups)
+            .set({
+              status: "scanned",
+              parsedTitle: parsed.title,
+              parsedYear: parsed.year ?? null,
+              tmdbId: null,
+              tmdbTitle: null,
+              tmdbYear: null,
+              tmdbPosterPath: null,
+              matchConfidence: null,
+              updatedAt: now,
+            })
+            .where(eq(groups.id, gid))
+            .run();
           db.update(jobs)
             .set({
               status: "scanned",

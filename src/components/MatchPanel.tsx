@@ -52,10 +52,6 @@ export function MatchPanel({ onRefresh }: { onRefresh: () => void }) {
   });
   const breakpoint = useBreakpoint();
 
-  // Visibility rules:
-  // mobile (< 768px): fullscreen overlay when matchPanelOpen && activeGroup
-  // md (768–1279px): sidebar tray, toggled by matchPanelOpen
-  // xl (≥ 1280px): sidebar tray, permanently visible
   const isMobile = breakpoint === "mobile";
   const isXl = breakpoint === "xl";
   const visible = isXl || matchPanelOpen;
@@ -63,8 +59,6 @@ export function MatchPanel({ onRefresh }: { onRefresh: () => void }) {
   if (!visible) return null;
   if (isMobile && !activeGroup) return null;
 
-  // Mobile: fullscreen fixed overlay, rendered here (outside overflow-hidden via page.tsx placement)
-  // Desktop: sidebar with fixed width in the flex row
   const containerStyle: React.CSSProperties = isMobile
     ? { position: "fixed", inset: 0, zIndex: 50 }
     : { width: 420, minWidth: 420 };
@@ -165,6 +159,8 @@ export function MatchPanel({ onRefresh }: { onRefresh: () => void }) {
   };
 
   const candidates = activeGroup.candidates || [];
+  const needsReview = activeGroup.status === "ambiguous" || activeGroup.status === "scanned" || activeGroup.status === "matched";
+  const topCandidate = candidates[0];
 
   return (
     <div className={containerClass} style={containerStyle}>
@@ -272,6 +268,59 @@ export function MatchPanel({ onRefresh }: { onRefresh: () => void }) {
           )}
         </div>
 
+        {/* Top Match — shown prominently for groups needing review */}
+        {needsReview && topCandidate && (
+          <div className="rounded-lg border border-accent/30 bg-accent/5 p-3 space-y-2">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-accent">
+              Top Match
+            </h3>
+            <div className="flex gap-3">
+              {topCandidate.posterPath ? (
+                <img
+                  src={`${TMDB_IMG_BASE}${topCandidate.posterPath}`}
+                  alt={topCandidate.title}
+                  className="w-16 h-24 rounded object-cover flex-shrink-0"
+                />
+              ) : (
+                <div className="w-16 h-24 rounded bg-bg-tertiary flex items-center justify-center text-text-muted text-xs flex-shrink-0">
+                  ?
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-text-primary">
+                  {topCandidate.title}
+                </p>
+                <div className="flex items-center gap-2 text-xs text-text-muted mt-0.5">
+                  {topCandidate.year && <span>{topCandidate.year}</span>}
+                  <span className="uppercase">{topCandidate.mediaType}</span>
+                  <span
+                    className={`font-mono ${
+                      topCandidate.confidence >= 0.85
+                        ? "text-success"
+                        : topCandidate.confidence >= 0.5
+                        ? "text-warning"
+                        : "text-error"
+                    }`}
+                  >
+                    {(topCandidate.confidence * 100).toFixed(0)}%
+                  </span>
+                </div>
+                {topCandidate.overview && (
+                  <p className="text-xs text-text-muted mt-1 line-clamp-2">
+                    {topCandidate.overview}
+                  </p>
+                )}
+                <button
+                  onClick={() => handleConfirmMatch(topCandidate)}
+                  className="mt-2 px-3 py-1.5 text-xs rounded-md bg-accent text-white hover:bg-accent-hover transition-colors font-medium"
+                >
+                  Confirm This Match
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Episode list */}
         {activeGroup.jobs.length > 0 && (
           <div className="space-y-1">
@@ -309,8 +358,24 @@ export function MatchPanel({ onRefresh }: { onRefresh: () => void }) {
           </div>
         )}
 
-        {/* TMDB Candidates */}
-        {candidates.length > 0 && (
+        {/* Other TMDB Candidates */}
+        {candidates.length > 1 && needsReview && (
+          <div className="space-y-2">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+              Other Candidates
+            </h3>
+            {candidates.slice(1).map((c) => (
+              <CandidateCard
+                key={c.id}
+                candidate={c}
+                onConfirm={() => handleConfirmMatch(c)}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Candidates for confirmed groups (all shown flat) */}
+        {candidates.length > 0 && !needsReview && (
           <div className="space-y-2">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-text-muted">
               Candidates
@@ -370,8 +435,7 @@ export function MatchPanel({ onRefresh }: { onRefresh: () => void }) {
         >
           Skip
         </button>
-        {activeGroup.status === "matched" ||
-        activeGroup.status === "ambiguous" ? (
+        {needsReview ? (
           <button
             onClick={() =>
               candidates[0] && handleConfirmMatch(candidates[0])

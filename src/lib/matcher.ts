@@ -96,10 +96,52 @@ function calculateConfidence(
 }
 
 /**
- * Match a group against TMDB using folder name
+ * For movie groups, find the best file-parsed title from child jobs.
+ * Returns null if no usable file title differs from the folder title.
+ */
+function getFileParsedTitle(
+  groupId: number,
+  folderTitle: string | null
+): { title: string; year: number | null } | null {
+  const groupJobs = db
+    .select()
+    .from(jobs)
+    .where(eq(jobs.groupId, groupId))
+    .all();
+
+  // Pick the largest non-extra file's parsed title (main feature is usually largest)
+  const candidates = groupJobs
+    .filter((j) => j.fileCategory !== "extra" && j.parsedTitle)
+    .sort((a, b) => (b.fileSize ?? 0) - (a.fileSize ?? 0));
+
+  if (candidates.length === 0) return null;
+
+  const best = candidates[0];
+  // Only return if it meaningfully differs from the folder title
+  if (
+    folderTitle &&
+    titleSimilarity(folderTitle, best.parsedTitle!) > 0.7
+  ) {
+    return null; // titles are similar enough, folder title is fine
+  }
+
+  return { title: best.parsedTitle!, year: best.parsedYear };
+}
+
+/**
+ * Match a group against TMDB using folder name and file names
  */
 export async function matchGroup(group: Group): Promise<void> {
-  if (!group.parsedTitle) {
+  // For movie groups, also consider the filename-parsed title
+  const fileTitle =
+    group.mediaType === "movie" || group.mediaType === "unknown"
+      ? getFileParsedTitle(group.id, group.parsedTitle)
+      : null;
+
+  const folderTitle = group.parsedTitle;
+
+  // We need at least one usable title
+  if (!folderTitle && !fileTitle) {
     db.update(groups)
       .set({ status: "ambiguous", updatedAt: new Date().toISOString() })
       .where(eq(groups.id, group.id))
@@ -107,14 +149,49 @@ export async function matchGroup(group: Group): Promise<void> {
     return;
   }
 
-  // Search TMDB based on media type
+  // Determine primary and secondary search titles
+  // File title is weighted higher when it differs from folder title
+  const primaryTitle = fileTitle?.title ?? folderTitle!;
+  const primaryYear = fileTitle?.year ?? group.parsedYear;
+  const secondaryTitle = fileTitle && folderTitle ? folderTitle : null;
+
+  // Search TMDB with primary title
   let results: TmdbSearchResult[];
   if (group.mediaType === "tv") {
-    results = await searchTV(group.parsedTitle, group.parsedYear ?? undefined);
+    results = await searchTV(primaryTitle, primaryYear ?? undefined);
   } else if (group.mediaType === "movie") {
-    results = await searchMovies(group.parsedTitle, group.parsedYear ?? undefined);
+    results = await searchMovies(primaryTitle, primaryYear ?? undefined);
   } else {
-    results = await searchMulti(group.parsedTitle, group.parsedYear ?? undefined);
+    results = await searchMulti(primaryTitle, primaryYear ?? undefined);
+  }
+
+  // If we have a different secondary title, also search with that and merge
+  if (secondaryTitle) {
+    let secondaryResults: TmdbSearchResult[];
+    if (group.mediaType === "tv") {
+      secondaryResults = await searchTV(
+        secondaryTitle,
+        group.parsedYear ?? undefined
+      );
+    } else if (group.mediaType === "movie") {
+      secondaryResults = await searchMovies(
+        secondaryTitle,
+        group.parsedYear ?? undefined
+      );
+    } else {
+      secondaryResults = await searchMulti(
+        secondaryTitle,
+        group.parsedYear ?? undefined
+      );
+    }
+    // Merge, deduplicating by TMDB ID
+    const seenIds = new Set(results.map((r) => r.id));
+    for (const r of secondaryResults) {
+      if (!seenIds.has(r.id)) {
+        results.push(r);
+        seenIds.add(r.id);
+      }
+    }
   }
 
   if (results.length === 0) {
@@ -125,12 +202,14 @@ export async function matchGroup(group: Group): Promise<void> {
     return;
   }
 
-  // Score all results
+  // Score all results against the primary title only.
+  // The secondary (folder) search just adds more candidates to the pool —
+  // it doesn't influence scoring, since the file title is more trustworthy.
   const scored = results.slice(0, 10).map((r) => ({
     result: r,
     confidence: calculateConfidence(
-      group.parsedTitle!,
-      group.parsedYear,
+      primaryTitle,
+      primaryYear,
       group.mediaType,
       r
     ),
@@ -181,10 +260,10 @@ export async function matchGroup(group: Group): Promise<void> {
       10
     );
 
-    // Update group with match
+    // Auto-confirm: confidence above threshold with clear gap
     db.update(groups)
       .set({
-        status: "matched",
+        status: "confirmed",
         tmdbId: top.result.id,
         tmdbTitle,
         tmdbYear: isNaN(tmdbYear) ? null : tmdbYear,
@@ -196,10 +275,10 @@ export async function matchGroup(group: Group): Promise<void> {
       .where(eq(groups.id, group.id))
       .run();
 
-    // Update child jobs with status and TMDB info
+    // Cascade confirmed status and TMDB info to child jobs
     db.update(jobs)
       .set({
-        status: "matched",
+        status: "confirmed",
         tmdbId: top.result.id,
         tmdbTitle: tmdbTitle,
         tmdbYear: isNaN(tmdbYear) ? null : tmdbYear,
@@ -289,7 +368,7 @@ export async function matchAllGroups(): Promise<{
         .from(groups)
         .where(eq(groups.id, group.id))
         .get();
-      if (updated?.status === "matched") matched++;
+      if (updated?.status === "confirmed" || updated?.status === "matched") matched++;
       else ambiguous++;
     } catch (err) {
       console.error(`Failed to match group ${group.id}:`, err);

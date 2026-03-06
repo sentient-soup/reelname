@@ -175,7 +175,7 @@ function GroupRow({
           <MediaTypeBadge type={group.mediaType} />
         </td>
         <td className="px-2 sm:px-4 py-2.5 max-w-0">
-          <div className="flex items-baseline gap-1 sm:gap-2">
+          <div className="flex items-baseline gap-2">
             <span className="font-medium text-text-primary truncate text-sm sm:text-sm">
               {group.tmdbTitle || group.parsedTitle || group.folderName}
             </span>

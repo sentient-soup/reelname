@@ -74,7 +74,7 @@ export function Filters({ onRefresh }: { onRefresh: () => void }) {
 
         {/* Bulk actions */}
         {Object.keys(selectedGroupIds).length > 0 && (
-          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap w-full sm:w-auto">
+          <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
             <span className="text-xs text-text-muted">
               {Object.keys(selectedGroupIds).length} selected:
             </span>

@@ -22,7 +22,13 @@ const SEASON_EPISODE_PATTERNS = [
   /[Cc](\d{1,2})[\s._-]*[Ee][Pp](\d{1,3})/,
   // E01, Ep01 (no season - assume S01)
   /(?:^|[\s._-])[Ee][Pp]?(\d{1,3})(?:[\s._-]|$)/,
+  // Bare episode number between dashes: "Title - 001 - Subtitle" or "Title - 01"
+  // Common in anime releases. No season indicator → assume S01.
+  /\s+-\s+(\d{1,4})(?:\s+-|\s*$)/,
 ];
+
+// Indices of episode-only patterns (no season captured → default to season 1)
+const EPISODE_ONLY_PATTERN_INDICES = [4, 5];
 
 const YEAR_PATTERN = /(?:^|[\s._(-])(\d{4})(?:[\s._)-]|$)/;
 
@@ -116,11 +122,12 @@ export function parseFileName(fileName: string): ParsedFile {
   let season: number | undefined;
   let episode: number | undefined;
 
-  for (const pattern of SEASON_EPISODE_PATTERNS) {
+  for (let i = 0; i < SEASON_EPISODE_PATTERNS.length; i++) {
+    const pattern = SEASON_EPISODE_PATTERNS[i];
     const m = working.match(pattern);
     if (m) {
-      if (pattern === SEASON_EPISODE_PATTERNS[4]) {
-        // Episode-only pattern (E01)
+      if (EPISODE_ONLY_PATTERN_INDICES.includes(i)) {
+        // Episode-only pattern — assume season 1
         season = 1;
         episode = parseInt(m[1], 10);
       } else {
@@ -236,11 +243,32 @@ export function parseFolderName(folderName: string): ParsedFolder {
   // Strip remaining parenthesized tags like (Batch), (BD), (Complete) — year already extracted
   working = working.replace(/\([^)]*\)/g, " ");
 
-  // Replace dots and underscores with spaces
-  let title = working
+  // Replace dots and underscores with spaces for easier matching
+  working = working
     .replace(/[._]/g, " ")
     .replace(/[-–—]/g, " ")
-    .replace(/[[\](){}]/g, " ")
+    .replace(/[[\](){}]/g, " ");
+
+  // Truncate at season/episode indicators — everything after is metadata
+  working = working.replace(/\b[Ss]\d{1,2}(?:[Ee]\d{1,3})?\b.*$/i, " ");
+  working = working.replace(/\bSeason\s*\d{1,2}\b.*$/i, " ");
+
+  // Strip quality, source, codec, audio, and misc technical metadata
+  const techPatterns = [
+    ...QUALITY_PATTERNS,
+    ...SOURCE_PATTERNS,
+    ...CODEC_PATTERNS,
+    ...AUDIO_PATTERNS,
+    ...MISC_PATTERNS,
+  ];
+  for (const pattern of techPatterns) {
+    working = working.replace(pattern, " ");
+  }
+
+  // Strip common junk words that remain after stripping
+  working = working.replace(/\b(Mp4|MKV|AVI|COMPLETE|Dual\s*Audio|Eng\s*Sub)\b/gi, " ");
+
+  const title = working
     .replace(/\s+/g, " ")
     .trim();
 
