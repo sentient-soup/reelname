@@ -5,7 +5,7 @@ import { bulkAction } from "@/lib/api";
 
 const STATUSES = [
   "scanned", "matched", "ambiguous", "confirmed",
-  "transferring", "completed", "failed", "skipped",
+  "transferring", "completed", "failed",
 ];
 
 const MEDIA_TYPES = ["movie", "tv", "unknown"];
@@ -22,31 +22,61 @@ export function Filters({ onRefresh }: { onRefresh: () => void }) {
     clearSelection,
   } = useAppStore();
 
+  const selectedCount = Object.keys(selectedGroupIds).length;
+  const hasSelection = selectedCount > 0;
+
   const handleBulk = async (action: string) => {
+    if (!hasSelection) return;
     const ids = Object.keys(selectedGroupIds).map(Number);
-    if (ids.length === 0) return;
     await bulkAction(action, { groupIds: ids });
     clearSelection();
     onRefresh();
   };
 
-  return (
-    <div className="flex flex-col gap-2 px-3 py-2 sm:px-6 sm:py-3 border-b border-border bg-bg-secondary/50">
-      <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-        {/* Search */}
-        <input
-          type="text"
-          placeholder="Search groups..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="px-3 py-1.5 text-sm rounded-md bg-bg-tertiary border border-border text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent flex-1 min-w-[140px] sm:flex-none sm:w-64"
-        />
+  const disabledBtn = "px-3 py-1 text-xs rounded bg-bg-tertiary text-text-muted cursor-not-allowed border border-border";
+  const grayBtn = "px-3 py-1 text-xs rounded bg-bg-tertiary text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors";
+  const primaryBtn = "px-3 py-1 text-xs rounded bg-accent text-white hover:bg-accent-hover transition-colors";
 
-        {/* Status filter */}
+  return (
+    <div className="flex items-center gap-2 sm:gap-3 px-3 py-2 sm:px-6 sm:py-2.5 border-b border-border bg-bg-secondary/50 overflow-x-auto">
+      {/* Bulk actions — always visible, greyed out when nothing selected */}
+      <div className="flex items-center gap-2 flex-shrink-0">
+        <button
+          onClick={() => handleBulk("confirm")}
+          disabled={!hasSelection}
+          className={hasSelection ? primaryBtn : disabledBtn}
+        >
+          Confirm
+        </button>
+        <button
+          onClick={() => handleBulk("rematch")}
+          disabled={!hasSelection}
+          className={hasSelection ? grayBtn : disabledBtn}
+        >
+          Rematch
+        </button>
+        <button
+          onClick={() => handleBulk("delete")}
+          disabled={!hasSelection}
+          className={hasSelection ? grayBtn : disabledBtn}
+        >
+          Delete
+        </button>
+        {hasSelection && (
+          <span className="text-xs text-text-muted">
+            {selectedCount} selected
+          </span>
+        )}
+      </div>
+
+      <div className="flex-1" />
+
+      {/* Filters — right side */}
+      <div className="flex items-center gap-2 flex-shrink-0">
         <select
           value={statusFilter || ""}
           onChange={(e) => setStatusFilter(e.target.value || null)}
-          className="px-3 py-1.5 text-sm rounded-md bg-bg-tertiary border border-border text-text-primary focus:outline-none focus:border-accent"
+          className="px-2 py-1.5 text-xs rounded-md bg-bg-tertiary border border-border text-text-primary focus:outline-none focus:border-accent"
         >
           <option value="">All statuses</option>
           {STATUSES.map((s) => (
@@ -56,11 +86,10 @@ export function Filters({ onRefresh }: { onRefresh: () => void }) {
           ))}
         </select>
 
-        {/* Media type filter */}
         <select
           value={mediaTypeFilter || ""}
           onChange={(e) => setMediaTypeFilter(e.target.value || null)}
-          className="px-3 py-1.5 text-sm rounded-md bg-bg-tertiary border border-border text-text-primary focus:outline-none focus:border-accent"
+          className="px-2 py-1.5 text-xs rounded-md bg-bg-tertiary border border-border text-text-primary focus:outline-none focus:border-accent"
         >
           <option value="">All types</option>
           {MEDIA_TYPES.map((t) => (
@@ -70,46 +99,13 @@ export function Filters({ onRefresh }: { onRefresh: () => void }) {
           ))}
         </select>
 
-        <div className="flex-1 hidden sm:block" />
-
-        {/* Bulk actions */}
-        {Object.keys(selectedGroupIds).length > 0 && (
-          <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
-            <span className="text-xs text-text-muted">
-              {Object.keys(selectedGroupIds).length} selected:
-            </span>
-            <button
-              onClick={() => handleBulk("confirm")}
-              className="px-2 py-1 text-xs rounded bg-status-confirmed text-white hover:opacity-90 transition-opacity"
-            >
-              Confirm
-            </button>
-            <button
-              onClick={() => handleBulk("skip")}
-              className="px-2 py-1 text-xs rounded bg-status-skipped text-white hover:opacity-90 transition-opacity"
-            >
-              Skip
-            </button>
-            <button
-              onClick={() => handleBulk("rematch")}
-              className="px-2 py-1 text-xs rounded bg-status-ambiguous text-white hover:opacity-90 transition-opacity"
-            >
-              Rematch
-            </button>
-            <button
-              onClick={() => handleBulk("delete")}
-              className="px-2 py-1 text-xs rounded bg-status-failed text-white hover:opacity-90 transition-opacity"
-            >
-              Delete
-            </button>
-            <button
-              onClick={clearSelection}
-              className="px-2 py-1 text-xs rounded bg-bg-tertiary text-text-secondary hover:bg-bg-hover transition-colors"
-            >
-              Clear
-            </button>
-          </div>
-        )}
+        <input
+          type="text"
+          placeholder="Search..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="px-2 py-1.5 text-xs rounded-md bg-bg-tertiary border border-border text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent w-40"
+        />
       </div>
     </div>
   );

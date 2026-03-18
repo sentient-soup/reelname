@@ -4,15 +4,13 @@ import { useAppStore } from "@/lib/store";
 
 export function Header({
   onScan,
-  onMatch,
 }: {
   onScan?: () => void;
-  onMatch?: () => void;
 }) {
   const {
     scanning,
+    scanProgress,
     setSettingsOpen,
-    selectedGroupIds,
     groups,
     totalGroups,
     transferDrawerOpen,
@@ -20,7 +18,28 @@ export function Header({
   } = useAppStore();
 
   const totalFiles = groups.reduce((sum, g) => sum + g.totalFileCount, 0);
-  const selectedCount = Object.keys(selectedGroupIds).length;
+
+  let progressLabel = "";
+  let progressPct = 0;
+  if (scanProgress) {
+    if (scanProgress.phase === "discovering") {
+      progressLabel = "Discovering...";
+      progressPct = 0;
+    } else if (scanProgress.phase === "scanning") {
+      progressLabel = `Scanning ${scanProgress.processed}/${scanProgress.total}`;
+      progressPct = scanProgress.total > 0
+        ? Math.round((scanProgress.processed / scanProgress.total) * 100)
+        : 0;
+    } else if (scanProgress.phase === "matching") {
+      if (scanProgress.total > 0) {
+        progressLabel = `Matching ${scanProgress.processed}/${scanProgress.total}`;
+        progressPct = Math.round((scanProgress.processed / scanProgress.total) * 100);
+      } else {
+        progressLabel = "Matching...";
+        progressPct = 100;
+      }
+    }
+  }
 
   return (
     <header className="flex items-center justify-between px-3 py-2.5 sm:px-6 sm:py-4 border-b border-border bg-bg-secondary">
@@ -35,15 +54,25 @@ export function Header({
         <span className="text-text-muted text-xs sm:text-sm truncate">
           {totalGroups} group{totalGroups !== 1 ? "s" : ""} ({totalFiles} file
           {totalFiles !== 1 ? "s" : ""})
-          {selectedCount > 0 && (
-            <span className="text-accent ml-1">
-              ({selectedCount} sel.)
-            </span>
-          )}
         </span>
       </div>
 
       <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+        {/* Scan progress — inline in header */}
+        {scanProgress && (
+          <div className="hidden sm:flex items-center gap-2 mr-1">
+            <div className="w-28 h-1.5 rounded-full bg-bg-tertiary overflow-hidden">
+              <div
+                className="h-full rounded-full bg-accent transition-all duration-300 ease-out"
+                style={{ width: `${progressPct}%` }}
+              />
+            </div>
+            <span className="text-[11px] text-text-muted whitespace-nowrap">
+              {progressLabel}
+            </span>
+          </div>
+        )}
+
         <button
           onClick={() => setTransferDrawerOpen(!transferDrawerOpen)}
           className="px-2.5 py-1.5 text-xs sm:text-sm rounded-md bg-bg-tertiary text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors"
@@ -55,13 +84,6 @@ export function Header({
           className="px-2.5 py-1.5 text-xs sm:text-sm rounded-md bg-bg-tertiary text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors"
         >
           Settings
-        </button>
-        <button
-          onClick={onMatch}
-          disabled={scanning}
-          className="px-2.5 py-1.5 text-xs sm:text-sm font-medium rounded-md bg-bg-tertiary text-text-secondary hover:bg-bg-hover hover:text-text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
-          Match
         </button>
         <button
           onClick={onScan}

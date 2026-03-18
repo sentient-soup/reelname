@@ -174,6 +174,44 @@ export function SettingsModal() {
                     className="w-full px-3 py-2 text-sm rounded-md bg-bg-tertiary border border-border text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent"
                   />
                 </div>
+
+                <hr className="border-border" />
+
+                <div>
+                  <label className="block text-xs font-medium text-text-muted mb-1">
+                    Subtitle Extensions
+                  </label>
+                  <input
+                    type="text"
+                    value={form.subtitle_extensions || "srt"}
+                    onChange={(e) =>
+                      setForm({ ...form, subtitle_extensions: e.target.value })
+                    }
+                    placeholder="srt"
+                    className="w-full px-3 py-2 text-sm rounded-md bg-bg-tertiary border border-border text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent"
+                  />
+                  <p className="mt-1 text-xs text-text-muted">
+                    Comma-separated list of subtitle file extensions to include during scan (e.g. srt, ass, sub, ssa)
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-text-muted mb-1">
+                    Subtitle Languages
+                  </label>
+                  <input
+                    type="text"
+                    value={form.subtitle_languages || ""}
+                    onChange={(e) =>
+                      setForm({ ...form, subtitle_languages: e.target.value })
+                    }
+                    placeholder="All languages"
+                    className="w-full px-3 py-2 text-sm rounded-md bg-bg-tertiary border border-border text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent"
+                  />
+                  <p className="mt-1 text-xs text-text-muted">
+                    Comma-separated language codes to include (e.g. en, es, fr). Leave empty to accept all. Subtitles without a detectable language code are always included.
+                  </p>
+                </div>
               </div>
 
               <div className="flex justify-end gap-2 pt-2">

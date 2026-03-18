@@ -117,11 +117,8 @@ export function MatchPanel({ onRefresh }: { onRefresh: () => void }) {
   const handleManualSearch = async () => {
     if (!manualQuery.trim()) return;
     setSearching(true);
-    const data = await searchTmdb(
-      manualQuery,
-      activeGroup.mediaType !== "unknown" ? activeGroup.mediaType : undefined,
-      activeGroup.parsedYear ?? undefined
-    );
+    // Don't filter by media type — let TMDB return both movies and TV shows
+    const data = await searchTmdb(manualQuery);
     setSearchResults(data.results || []);
     setSearching(false);
   };
@@ -148,6 +145,12 @@ export function MatchPanel({ onRefresh }: { onRefresh: () => void }) {
     );
     setEditing(false);
     useToastStore.getState().addToast("Group updated", "success");
+    onRefresh();
+  };
+
+  const handleMediaTypeChange = async (newType: "movie" | "tv" | "unknown") => {
+    await updateGroup(activeGroup.id, { mediaType: newType });
+    updateStoreGroup(activeGroup.id, { mediaType: newType });
     onRefresh();
   };
 
@@ -262,7 +265,21 @@ export function MatchPanel({ onRefresh }: { onRefresh: () => void }) {
                     {activeGroup.tmdbYear || activeGroup.parsedYear}
                   </span>
                 )}
-                <span className="uppercase">{activeGroup.mediaType}</span>
+                <span className="inline-flex rounded overflow-hidden border border-border text-[10px]">
+                  {(["movie", "tv", "unknown"] as const).map((t) => (
+                    <button
+                      key={t}
+                      onClick={() => handleMediaTypeChange(t)}
+                      className={`px-1.5 py-0.5 uppercase transition-colors ${
+                        activeGroup.mediaType === t
+                          ? "bg-accent text-white"
+                          : "text-text-muted hover:text-text-primary hover:bg-bg-hover"
+                      }`}
+                    >
+                      {t === "tv" ? "TV" : t}
+                    </button>
+                  ))}
+                </span>
               </div>
             </div>
           )}

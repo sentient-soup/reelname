@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect } from "react";
 import { useAppStore } from "@/lib/store";
-import { fetchGroups, fetchSettings, triggerScan, triggerMatch } from "@/lib/api";
+import { fetchGroups, fetchSettings, triggerScan } from "@/lib/api";
 import { Header } from "@/components/Header";
 import { Filters } from "@/components/Filters";
 import { QueueTable } from "@/components/QueueTable";
@@ -55,10 +55,30 @@ export default function Dashboard() {
   }, [searchQuery, loadGroups]);
 
   const handleScan = useCallback(async () => {
-    const { setScanning, settings } = useAppStore.getState();
+    const { setScanning, setScanProgress, settings } = useAppStore.getState();
     setScanning(true);
+    setScanProgress(null);
     try {
-      const result = await triggerScan(settings.scan_path || undefined);
+      const result = await triggerScan(settings.scan_path || undefined, (progress) => {
+        if (progress.phase === "discovering") {
+          setScanProgress({ phase: "discovering", total: 0, processed: 0, name: "" });
+        } else if (progress.phase === "scanning") {
+          setScanProgress({
+            phase: "scanning",
+            total: progress.total || 0,
+            processed: progress.processed || 0,
+            name: progress.name || "",
+          });
+        } else if (progress.phase === "matching") {
+          setScanProgress({
+            phase: "matching",
+            total: progress.total || 0,
+            processed: progress.processed || 0,
+            name: "",
+          });
+        }
+      });
+      setScanProgress(null);
       if (result.error) {
         useToastStore.getState().addToast(result.error, "error");
       } else {
@@ -77,35 +97,14 @@ export default function Dashboard() {
     } catch {
       useToastStore.getState().addToast("Scan failed", "error");
     }
-    setScanning(false);
-  }, [loadGroups]);
-
-  const handleMatch = useCallback(async () => {
-    const { setScanning } = useAppStore.getState();
-    setScanning(true);
-    try {
-      const result = await triggerMatch();
-      if (result.error) {
-        useToastStore.getState().addToast(result.error, "error");
-      } else {
-        useToastStore
-          .getState()
-          .addToast(
-            `Matched ${result.matched ?? 0} groups, ${result.ambiguous ?? 0} ambiguous.`,
-            "success"
-          );
-      }
-      await loadGroups();
-    } catch {
-      useToastStore.getState().addToast("Matching failed", "error");
-    }
+    setScanProgress(null);
     setScanning(false);
   }, [loadGroups]);
 
   return (
     <div className="h-screen flex flex-col">
       <KeyboardShortcuts onRefresh={loadGroups} onScan={handleScan} />
-      <Header onScan={handleScan} onMatch={handleMatch} />
+      <Header onScan={handleScan} />
       <Filters onRefresh={loadGroups} />
       <div className="flex flex-1 overflow-hidden">
         <div className="flex-1 flex flex-col overflow-hidden">

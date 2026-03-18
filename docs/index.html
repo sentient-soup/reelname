@@ -576,6 +576,98 @@
       overflow: hidden;
     }
 
+    /* Mock app header */
+    .mock-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 16px;
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .mock-header-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .mock-header-logo {
+      width: 22px;
+      height: 22px;
+      border-radius: 4px;
+    }
+
+    .mock-header-title {
+      font-family: var(--font-body);
+      font-size: 0.875rem;
+      font-weight: 700;
+    }
+
+    .mock-header-title .hl { color: var(--accent-hover); }
+
+    .mock-header-meta {
+      font-size: 0.6875rem;
+      color: var(--text-muted);
+    }
+
+    .mock-header-actions {
+      display: flex;
+      gap: 6px;
+    }
+
+    .mock-btn {
+      padding: 4px 10px;
+      font-family: var(--font-body);
+      font-size: 0.6875rem;
+      font-weight: 500;
+      border: none;
+      border-radius: 5px;
+      cursor: default;
+    }
+
+    .mock-btn-default {
+      background: var(--bg-tertiary);
+      color: var(--text-secondary);
+    }
+
+    .mock-btn-accent {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    /* Mock filter bar */
+    .mock-filters {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .mock-search {
+      flex: 1;
+      max-width: 200px;
+      padding: 4px 10px;
+      font-size: 0.6875rem;
+      font-family: var(--font-body);
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      color: var(--text-muted);
+    }
+
+    .mock-select {
+      padding: 4px 10px;
+      font-size: 0.6875rem;
+      font-family: var(--font-body);
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      color: var(--text-secondary);
+    }
+
     /* Mock table UI */
     .mock-table {
       width: 100%;
@@ -584,8 +676,8 @@
 
     .mock-table th {
       text-align: left;
-      padding: 10px 16px;
-      font-size: 0.6875rem;
+      padding: 8px 16px;
+      font-size: 0.6rem;
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.08em;
@@ -594,61 +686,100 @@
       border-bottom: 1px solid var(--border);
     }
 
+    .mock-table th.col-check { width: 32px; }
+    .mock-table th.col-type { width: 48px; }
+    .mock-table th.col-size { width: 72px; }
+    .mock-table th.col-status { width: 88px; }
+
     .mock-table td {
-      padding: 12px 16px;
-      border-bottom: 1px solid rgba(42, 47, 74, 0.5);
+      padding: 8px 16px;
+      border-bottom: 1px solid rgba(42, 47, 74, 0.3);
       font-size: 0.8125rem;
+      vertical-align: middle;
     }
 
     .mock-table tr:last-child td {
       border-bottom: none;
     }
 
-    .mock-table .name {
-      color: var(--text-primary);
-      font-weight: 500;
+    .mock-table tr:hover td {
+      background: rgba(37, 42, 69, 0.3);
     }
 
-    .mock-table .dest {
+    .mock-check {
+      width: 12px;
+      height: 12px;
+      border: 1.5px solid var(--text-muted);
+      border-radius: 2px;
+      opacity: 0.5;
+    }
+
+    /* Media type badge - tiny solid pill */
+    .mock-type-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-size: 0.5625rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #fff;
+    }
+
+    .mock-type-badge.movie { background: var(--info); }
+    .mock-type-badge.tv { background: var(--accent); }
+
+    /* Title cell */
+    .mock-title-cell {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+    }
+
+    .mock-title-name {
+      color: var(--text-primary);
+      font-weight: 500;
+      font-family: var(--font-body);
+      font-size: 0.8125rem;
+    }
+
+    .mock-title-meta {
+      color: var(--text-muted);
+      font-size: 0.6875rem;
+      white-space: nowrap;
+    }
+
+    .mock-folder-name {
+      font-family: var(--font-mono);
+      font-size: 0.625rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+      opacity: 0.7;
+    }
+
+    .mock-size {
+      font-size: 0.75rem;
       color: var(--text-secondary);
     }
 
+    /* Status badge - solid colored pill with white text */
     .mock-status {
       display: inline-flex;
       align-items: center;
-      gap: 6px;
-      font-size: 0.75rem;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 0.6875rem;
       font-weight: 500;
-      padding: 3px 10px;
-      border-radius: 100px;
+      color: #fff;
     }
 
-    .mock-status.matched {
-      background: rgba(34, 197, 94, 0.12);
-      color: var(--success);
-    }
-
-    .mock-status.transferring {
-      background: rgba(6, 182, 212, 0.12);
-      color: #06b6d4;
-    }
-
-    .mock-status.completed {
-      background: rgba(16, 185, 129, 0.12);
-      color: #10b981;
-    }
-
-    .mock-status.ambiguous {
-      background: rgba(245, 158, 11, 0.12);
-      color: var(--warning);
-    }
-
-    .mock-status-dot {
-      width: 5px;
-      height: 5px;
-      border-radius: 50%;
-      background: currentColor;
-    }
+    .mock-status.confirmed { background: #3b82f6; }
+    .mock-status.matched { background: #22c55e; }
+    .mock-status.transferring { background: #06b6d4; }
+    .mock-status.completed { background: #10b981; }
+    .mock-status.ambiguous { background: #f59e0b; }
+    .mock-status.scanned { background: #8b5cf6; }
 
     /* ================================================================
        CTA SECTION
@@ -979,45 +1110,115 @@
           <span style="width: 46px;"></span>
         </div>
         <div class="app-window-body">
+          <!-- Mock header bar -->
+          <div class="mock-header">
+            <div class="mock-header-left">
+              <svg class="mock-header-logo" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="4" y="4" width="120" height="120" rx="20" fill="#6366f1"/>
+                <rect x="24" y="22" width="18" height="84" fill="white"/>
+                <path d="M42 22 L72 22 Q100 22 100 50 Q100 68 82 72 L42 72 Z" fill="white"/>
+                <polygon points="58,68 78,68 104,106 84,106" fill="white"/>
+                <circle cx="70" cy="48" r="16" fill="#6366f1"/>
+                <circle cx="70" cy="48" r="4.5" fill="white"/>
+              </svg>
+              <span class="mock-header-title"><span class="hl">Reel</span>Name</span>
+              <span class="mock-header-meta">5 groups (12 files)</span>
+            </div>
+            <div class="mock-header-actions">
+              <span class="mock-btn mock-btn-default">Transfers</span>
+              <span class="mock-btn mock-btn-default">Settings</span>
+              <span class="mock-btn mock-btn-default">Match</span>
+              <span class="mock-btn mock-btn-accent">Scan</span>
+            </div>
+          </div>
+
+          <!-- Mock filter bar -->
+          <div class="mock-filters">
+            <span class="mock-search">Search groups...</span>
+            <span class="mock-select">All Statuses</span>
+            <span class="mock-select">All Types</span>
+          </div>
+
+          <!-- Mock table -->
           <table class="mock-table">
             <thead>
               <tr>
-                <th>Name</th>
-                <th>Type</th>
-                <th>Status</th>
-                <th>Destination</th>
+                <th class="col-check"></th>
+                <th class="col-type">Type</th>
+                <th>Title</th>
+                <th class="col-size">Size</th>
+                <th class="col-status">Status</th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td class="name">Severance S02</td>
-                <td style="color: var(--text-secondary);">TV</td>
-                <td><span class="mock-status completed"><span class="mock-status-dot"></span>Completed</span></td>
-                <td class="dest">media-server:/tv/Severance (2022)/Season 02/</td>
+                <td><div class="mock-check"></div></td>
+                <td><span class="mock-type-badge tv">TV</span></td>
+                <td>
+                  <div class="mock-title-cell">
+                    <span class="mock-title-name">Severance</span>
+                    <span class="mock-title-meta">(2022)</span>
+                    <span class="mock-title-meta">10 files</span>
+                  </div>
+                  <div class="mock-folder-name">Severance S02 Complete 1080p WEB-DL</div>
+                </td>
+                <td class="mock-size">32.4 GB</td>
+                <td><span class="mock-status confirmed">Confirmed</span></td>
               </tr>
               <tr>
-                <td class="name">The Brutalist (2024)</td>
-                <td style="color: var(--text-secondary);">Movie</td>
-                <td><span class="mock-status transferring"><span class="mock-status-dot"></span>Transferring</span></td>
-                <td class="dest">media-server:/movies/The Brutalist (2024)/</td>
+                <td><div class="mock-check"></div></td>
+                <td><span class="mock-type-badge movie">Movie</span></td>
+                <td>
+                  <div class="mock-title-cell">
+                    <span class="mock-title-name">The Brutalist</span>
+                    <span class="mock-title-meta">(2024)</span>
+                    <span class="mock-title-meta">1 file</span>
+                  </div>
+                  <div class="mock-folder-name">The.Brutalist.2024.2160p.WEB-DL</div>
+                </td>
+                <td class="mock-size">18.7 GB</td>
+                <td><span class="mock-status transferring">Transferring</span></td>
               </tr>
               <tr>
-                <td class="name">Alien.Romulus.2024</td>
-                <td style="color: var(--text-secondary);">Movie</td>
-                <td><span class="mock-status matched"><span class="mock-status-dot"></span>Matched</span></td>
-                <td class="dest">/mnt/media/movies/Alien Romulus (2024)/</td>
+                <td><div class="mock-check"></div></td>
+                <td><span class="mock-type-badge movie">Movie</span></td>
+                <td>
+                  <div class="mock-title-cell">
+                    <span class="mock-title-name">Alien: Romulus</span>
+                    <span class="mock-title-meta">(2024)</span>
+                    <span class="mock-title-meta">1 file</span>
+                  </div>
+                  <div class="mock-folder-name">Alien.Romulus.2024.1080p.BluRay</div>
+                </td>
+                <td class="mock-size">12.1 GB</td>
+                <td><span class="mock-status confirmed">Confirmed</span></td>
               </tr>
               <tr>
-                <td class="name">Band.of.Brothers.S01</td>
-                <td style="color: var(--text-secondary);">TV</td>
-                <td><span class="mock-status matched"><span class="mock-status-dot"></span>Matched</span></td>
-                <td class="dest">media-server:/tv/Band of Brothers (2001)/Season 01/</td>
+                <td><div class="mock-check"></div></td>
+                <td><span class="mock-type-badge tv">TV</span></td>
+                <td>
+                  <div class="mock-title-cell">
+                    <span class="mock-title-name">Band of Brothers</span>
+                    <span class="mock-title-meta">(2001)</span>
+                    <span class="mock-title-meta">10 files</span>
+                  </div>
+                  <div class="mock-folder-name">Band.of.Brothers.S01.Complete.1080p</div>
+                </td>
+                <td class="mock-size">45.2 GB</td>
+                <td><span class="mock-status completed">Completed</span></td>
               </tr>
               <tr>
-                <td class="name">some.random.release.720p</td>
-                <td style="color: var(--text-secondary);">TV</td>
-                <td><span class="mock-status ambiguous"><span class="mock-status-dot"></span>Ambiguous</span></td>
-                <td class="dest">—</td>
+                <td><div class="mock-check"></div></td>
+                <td><span class="mock-type-badge tv">TV</span></td>
+                <td>
+                  <div class="mock-title-cell">
+                    <span class="mock-title-name">some random release</span>
+                    <span class="mock-title-meta">1 file</span>
+                  </div>
+                  <div class="mock-folder-name">some.random.release.720p</div>
+                </td>
+                <td class="mock-size">1.4 GB</td>
+                <td><span class="mock-status ambiguous">Ambiguous</span></td>
               </tr>
             </tbody>
           </table>

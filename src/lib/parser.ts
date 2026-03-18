@@ -25,10 +25,13 @@ const SEASON_EPISODE_PATTERNS = [
   // Bare episode number between dashes: "Title - 001 - Subtitle" or "Title - 01"
   // Common in anime releases. No season indicator → assume S01.
   /\s+-\s+(\d{1,4})(?:\s+-|\s*$)/,
+  // Leading episode number: "01 - Episode Title" (no title before the number)
+  // Limited to 1-3 digits to avoid matching years like "2023 - Title"
+  /^(\d{1,3})\s+-\s+/,
 ];
 
 // Indices of episode-only patterns (no season captured → default to season 1)
-const EPISODE_ONLY_PATTERN_INDICES = [4, 5];
+const EPISODE_ONLY_PATTERN_INDICES = [4, 5, 6];
 
 const YEAR_PATTERN = /(?:^|[\s._(-])(\d{4})(?:[\s._)-]|$)/;
 

@@ -155,6 +155,15 @@ function initializeDatabase() {
       tv_template TEXT
     );
 
+    CREATE TABLE IF NOT EXISTS subtitle_files (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      job_id INTEGER NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+      source_path TEXT NOT NULL,
+      file_name TEXT NOT NULL,
+      file_extension TEXT NOT NULL,
+      language_code TEXT
+    );
+
     CREATE TABLE IF NOT EXISTS settings (
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL
@@ -184,6 +193,7 @@ function initializeDatabase() {
   insertSetting.run("naming_preset", "jellyfin");
   insertSetting.run("specials_folder_name", "Specials");
   insertSetting.run("extras_folder_name", "Extras");
+  insertSetting.run("subtitle_extensions", "srt");
 }
 
 initializeDatabase();

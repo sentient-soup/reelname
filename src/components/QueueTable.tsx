@@ -247,6 +247,16 @@ function FileRow({ job }: { job: JobWithPreview }) {
                 &rarr; {job.previewName}
               </span>
             )}
+            {job.subtitles && job.subtitles.length > 0 && (
+              <span className="text-[11px] text-text-muted block">
+                {job.subtitles.map((s) =>
+                  s.languageCode
+                    ? `${s.languageCode}${s.fileExtension}`
+                    : s.fileExtension
+                ).join(", ")}{" "}
+                sub{job.subtitles.length !== 1 ? "s" : ""}
+              </span>
+            )}
           </div>
         </div>
       </td>

@@ -80,13 +80,90 @@ export async function bulkAction(
 
 // ── Scan ────────────────────────────────────────────────
 
-export async function triggerScan(path?: string) {
+export interface ScanProgress {
+  phase: "discovering" | "scanning" | "matching" | "complete" | "error";
+  total?: number;
+  processed?: number;
+  added?: number;
+  skipped?: number;
+  name?: string;
+  // complete event fields
+  addedGroups?: number;
+  addedFiles?: number;
+  matched?: number;
+  ambiguous?: number;
+  matchError?: string | null;
+  error?: string;
+}
+
+export async function triggerScan(
+  path?: string,
+  onProgress?: (progress: ScanProgress) => void
+) {
   const res = await fetch("/api/scan", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(path ? { path } : {}),
   });
-  return res.json();
+
+  // If the response is not SSE (e.g. an error JSON), handle it the old way
+  const contentType = res.headers.get("Content-Type") || "";
+  if (!contentType.includes("text/event-stream")) {
+    return res.json();
+  }
+
+  const reader = res.body!.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let result: any = {};
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() || "";
+
+    let currentEvent = "";
+    for (const line of lines) {
+      if (line.startsWith("event: ")) {
+        currentEvent = line.slice(7).trim();
+      } else if (line.startsWith("data: ")) {
+        const data = JSON.parse(line.slice(6));
+
+        if (currentEvent === "phase") {
+          onProgress?.({ phase: data.phase });
+        } else if (currentEvent === "discovered") {
+          onProgress?.({ phase: "scanning", total: data.total, processed: 0 });
+        } else if (currentEvent === "progress") {
+          onProgress?.({
+            phase: "scanning",
+            total: data.total,
+            processed: data.processed,
+            added: data.added,
+            skipped: data.skipped,
+            name: data.name,
+          });
+        } else if (currentEvent === "matchProgress") {
+          onProgress?.({
+            phase: "matching",
+            processed: data.processed,
+            total: data.total,
+          });
+        } else if (currentEvent === "complete") {
+          result = data;
+          onProgress?.({ phase: "complete", ...data });
+        } else if (currentEvent === "error") {
+          result = data;
+          onProgress?.({ phase: "error", error: data.error });
+        }
+      }
+    }
+  }
+
+  return result;
 }
 
 // ── Match ───────────────────────────────────────────────

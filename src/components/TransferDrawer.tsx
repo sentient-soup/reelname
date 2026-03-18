@@ -34,6 +34,37 @@ function useIsMobile(breakpoint = 768) {
   return mobile;
 }
 
+function IconPencil() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+      <path d="m15 5 4 4" />
+    </svg>
+  );
+}
+
+function IconTransfer() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
+      <path d="M12 10v6" />
+      <path d="m15 13-3 3-3-3" />
+    </svg>
+  );
+}
+
+function IconTrash() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 6h18" />
+      <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+      <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+      <line x1="10" y1="11" x2="10" y2="17" />
+      <line x1="14" y1="11" x2="14" y2="17" />
+    </svg>
+  );
+}
+
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -246,16 +277,21 @@ export function TransferDrawer({ onRefresh }: { onRefresh: () => void }) {
     setTestingConnection(false);
   };
 
-  const handleTransfer = async () => {
+  const handleTransferTo = async (destId: number) => {
     const ids = Object.keys(selectedGroupIds).map(Number);
-    if (!selectedDest || ids.length === 0) return;
+    if (ids.length === 0) return;
     setTransferring(true);
     setActiveTransfers([]);
     prevProgress.current = {};
     setTransferRates({});
-    await startTransfer({ groupIds: ids }, selectedDest);
-    // Start listening for progress
+    await startTransfer({ groupIds: ids }, destId);
     startProgressStream();
+  };
+
+  const clearTransferHistory = () => {
+    setActiveTransfers([]);
+    prevProgress.current = {};
+    setTransferRates({});
   };
 
   // Count confirmed groups
@@ -298,7 +334,7 @@ export function TransferDrawer({ onRefresh }: { onRefresh: () => void }) {
   // Mobile: fullscreen overlay. Desktop: bottom drawer with fixed height.
   const drawerStyle: React.CSSProperties = isMobile
     ? { position: "fixed", inset: 0, zIndex: 50 }
-    : { position: "relative", height: 360, borderTop: "1px solid var(--color-border)" };
+    : { position: "relative", height: 380, borderTop: "1px solid var(--color-border)" };
 
   return (
     <>
@@ -343,8 +379,8 @@ export function TransferDrawer({ onRefresh }: { onRefresh: () => void }) {
 
           <div className={`flex ${isMobile ? "flex-col" : "flex-row"} flex-1 overflow-hidden`}>
             {/* Destinations list */}
-            <div className={`${isMobile ? "w-full border-b" : "w-72 border-r"} border-border p-3 overflow-y-auto flex-shrink-0`}>
-              <div className="flex items-center justify-between mb-2">
+            <div className={`${isMobile ? "w-full border-b" : "w-80 border-r"} border-border p-3 overflow-y-auto flex-shrink-0`}>
+              <div className="flex items-center justify-between mb-3">
                 <h3 className="text-xs font-semibold uppercase tracking-wider text-text-muted">
                   Destinations
                 </h3>
@@ -356,38 +392,84 @@ export function TransferDrawer({ onRefresh }: { onRefresh: () => void }) {
                 </button>
               </div>
 
-              {destinations.map((d) => (
-                <div
-                  key={d.id}
-                  onClick={() => setSelectedDest(d.id)}
-                  className={`flex items-center justify-between p-2 rounded cursor-pointer mb-1 transition-colors ${
-                    selectedDest === d.id
-                      ? "bg-accent/20 border border-accent/40"
-                      : "hover:bg-bg-hover"
-                  }`}
-                >
-                  <div>
-                    <p className="text-sm text-text-primary">{d.name}</p>
-                    <p className="text-xs text-text-muted truncate">
-                      {d.basePath}
-                    </p>
-                  </div>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDeleteDest(d.id);
-                    }}
-                    className="text-text-muted hover:text-error text-xs"
+              <div className="space-y-2">
+                {destinations.map((d) => (
+                  <div
+                    key={d.id}
+                    className="p-3 rounded-lg bg-bg-tertiary/50 hover:bg-bg-tertiary transition-colors"
                   >
-                    &times;
-                  </button>
-                </div>
-              ))}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="text-sm font-medium text-text-primary truncate">
+                            {d.name}
+                          </p>
+                          <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider ${
+                            d.type === "ssh"
+                              ? "bg-accent/20 text-accent"
+                              : "bg-info/20 text-info"
+                          }`}>
+                            {d.type === "ssh" ? "SSH" : "Local"}
+                          </span>
+                        </div>
+                        {d.type === "ssh" && d.sshHost && (
+                          <p className="text-xs text-text-muted truncate">
+                            {d.sshUser ? `${d.sshUser}@` : ""}{d.sshHost}{d.sshPort && d.sshPort !== 22 ? `:${d.sshPort}` : ""}
+                          </p>
+                        )}
+                        <p className="text-xs text-text-muted truncate font-mono">
+                          {d.basePath}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <button
+                          onClick={() => {
+                            setSelectedDest(d.id);
+                            handleTransferTo(d.id);
+                          }}
+                          disabled={confirmedSelected.length === 0 || transferring}
+                          title={confirmedSelected.length > 0 ? `Transfer ${totalFiles} file${totalFiles !== 1 ? "s" : ""} to ${d.name}` : "Select confirmed groups to transfer"}
+                          className={`p-1.5 rounded-md transition-colors ${
+                            confirmedSelected.length > 0 && !transferring
+                              ? "text-accent hover:bg-accent/15"
+                              : "text-text-muted cursor-not-allowed"
+                          }`}
+                        >
+                          <IconTransfer />
+                        </button>
+                        <button
+                          onClick={() => setShowAddDest(true)}
+                          title="Edit destination"
+                          className="p-1.5 rounded-md text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors"
+                        >
+                          <IconPencil />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteDest(d.id);
+                          }}
+                          title="Delete destination"
+                          className="p-1.5 rounded-md text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors"
+                        >
+                          <IconTrash />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                {destinations.length === 0 && (
+                  <p className="text-xs text-text-muted text-center py-4">
+                    No destinations configured.
+                  </p>
+                )}
+              </div>
             </div>
 
-            {/* Transfer action / progress area */}
+            {/* Transfer progress area */}
             <div className="flex-1 flex flex-col overflow-hidden">
-              {transferring || activeTransfers.length > 0 ? (
+              {activeTransfers.length > 0 ? (
                 <TransferProgress
                   jobs={activeTransfers}
                   rates={transferRates}
@@ -398,43 +480,16 @@ export function TransferDrawer({ onRefresh }: { onRefresh: () => void }) {
                   activeCount={activeCount}
                   queuedCount={queuedCount}
                   failedCount={failedCount}
+                  transferring={transferring}
+                  onClear={clearTransferHistory}
                 />
-              ) : confirmedSelected.length === 0 ? (
-                <div className="flex-1 flex items-center justify-center">
-                  <p className="text-text-muted text-sm text-center">
-                    Select confirmed groups in the queue and a destination to
-                    transfer.
-                  </p>
-                </div>
-              ) : !selectedDest ? (
-                <div className="flex-1 flex items-center justify-center">
-                  <p className="text-text-muted text-sm text-center">
-                    Select a destination to transfer {totalFiles} file
-                    {totalFiles !== 1 ? "s" : ""} from{" "}
-                    {confirmedSelected.length} group
-                    {confirmedSelected.length !== 1 ? "s" : ""}.
-                  </p>
-                </div>
               ) : (
                 <div className="flex-1 flex items-center justify-center">
-                  <div className="text-center space-y-3">
-                    <p className="text-sm text-text-primary">
-                      Transfer {totalFiles} file
-                      {totalFiles !== 1 ? "s" : ""} from{" "}
-                      {confirmedSelected.length} group
-                      {confirmedSelected.length !== 1 ? "s" : ""} to{" "}
-                      <span className="font-medium text-accent">
-                        {destinations.find((d) => d.id === selectedDest)?.name}
-                      </span>
-                    </p>
-                    <button
-                      onClick={handleTransfer}
-                      disabled={transferring}
-                      className="px-6 py-2 rounded-md bg-accent text-white hover:bg-accent-hover disabled:opacity-50 transition-colors font-medium"
-                    >
-                      Start Transfer
-                    </button>
-                  </div>
+                  <p className="text-text-muted text-sm text-center px-4">
+                    {confirmedSelected.length > 0
+                      ? `${confirmedSelected.length} confirmed group${confirmedSelected.length !== 1 ? "s" : ""} (${totalFiles} file${totalFiles !== 1 ? "s" : ""}) ready. Click "Transfer" on a destination.`
+                      : "Select confirmed groups in the queue, then click \"Transfer\" on a destination."}
+                  </p>
                 </div>
               )}
             </div>
@@ -730,6 +785,8 @@ function TransferProgress({
   activeCount,
   queuedCount,
   failedCount,
+  transferring,
+  onClear,
 }: {
   jobs: TransferJob[];
   rates: Record<number, number>;
@@ -740,6 +797,8 @@ function TransferProgress({
   activeCount: number;
   queuedCount: number;
   failedCount: number;
+  transferring: boolean;
+  onClear: () => void;
 }) {
   const totalRate = Object.values(rates).reduce(
     (s, r) => s + Math.max(0, r),
@@ -757,17 +816,26 @@ function TransferProgress({
               ({(overallProgress * 100).toFixed(1)}%)
             </span>
           </span>
-          <span className="text-text-muted">
+          <span className="text-text-muted flex items-center gap-2">
             {totalRate > 0 && formatRate(totalRate)}
             {activeCount > 0 && (
-              <span className="ml-2">
+              <span>
                 {activeCount} active
               </span>
             )}
             {queuedCount > 0 && (
-              <span className="ml-2">
+              <span>
                 {queuedCount} queued
               </span>
+            )}
+            {!transferring && (
+              <button
+                onClick={onClear}
+                className="text-text-muted hover:text-text-primary transition-colors"
+                title="Clear transfer history"
+              >
+                Clear
+              </button>
             )}
           </span>
         </div>

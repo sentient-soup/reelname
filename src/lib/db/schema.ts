@@ -161,6 +161,17 @@ export const destinations = sqliteTable("destinations", {
   tvTemplate: text("tv_template"),
 });
 
+export const subtitleFiles = sqliteTable("subtitle_files", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  jobId: integer("job_id")
+    .notNull()
+    .references(() => jobs.id, { onDelete: "cascade" }),
+  sourcePath: text("source_path").notNull(),
+  fileName: text("file_name").notNull(),
+  fileExtension: text("file_extension").notNull(),
+  languageCode: text("language_code"),
+});
+
 export const settings = sqliteTable("settings", {
   key: text("key").primaryKey(),
   value: text("value").notNull(),
@@ -174,4 +185,6 @@ export type NewJob = typeof jobs.$inferInsert;
 export type MatchCandidate = typeof matchCandidates.$inferSelect;
 export type NewMatchCandidate = typeof matchCandidates.$inferInsert;
 export type Destination = typeof destinations.$inferSelect;
+export type SubtitleFile = typeof subtitleFiles.$inferSelect;
+export type NewSubtitleFile = typeof subtitleFiles.$inferInsert;
 export type Setting = typeof settings.$inferSelect;

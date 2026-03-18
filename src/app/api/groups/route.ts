@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { groups, jobs, settings } from "@/lib/db/schema";
+import { groups, jobs, subtitleFiles, settings } from "@/lib/db/schema";
 import { eq, like, sql, desc, asc } from "drizzle-orm";
 import { formatGroupedPath } from "@/lib/naming";
 
@@ -86,12 +86,20 @@ export async function GET(request: NextRequest) {
       .all();
 
     // Compute preview names for groups with a TMDB match
-    const jobsWithPreview = groupJobs.map((job) => ({
-      ...job,
-      previewName: group.tmdbId
-        ? formatGroupedPath(job, group, namingSettings)
-        : null,
-    }));
+    const jobsWithPreview = groupJobs.map((job) => {
+      const subs = db
+        .select()
+        .from(subtitleFiles)
+        .where(eq(subtitleFiles.jobId, job.id))
+        .all();
+      return {
+        ...job,
+        previewName: group.tmdbId
+          ? formatGroupedPath(job, group, namingSettings)
+          : null,
+        subtitles: subs,
+      };
+    });
 
     return {
       ...group,
