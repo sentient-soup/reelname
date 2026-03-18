@@ -347,7 +347,9 @@ async function fetchEpisodeTitles(
 /**
  * Match all unmatched groups
  */
-export async function matchAllGroups(): Promise<{
+export async function matchAllGroups(
+  onProgress?: (processed: number, total: number) => void
+): Promise<{
   matched: number;
   ambiguous: number;
 }> {
@@ -360,7 +362,8 @@ export async function matchAllGroups(): Promise<{
   let matched = 0;
   let ambiguous = 0;
 
-  for (const group of unmatched) {
+  for (let i = 0; i < unmatched.length; i++) {
+    const group = unmatched[i];
     try {
       await matchGroup(group);
       const updated = db
@@ -374,6 +377,7 @@ export async function matchAllGroups(): Promise<{
       console.error(`Failed to match group ${group.id}:`, err);
       ambiguous++;
     }
+    onProgress?.(i + 1, unmatched.length);
   }
 
   return { matched, ambiguous };

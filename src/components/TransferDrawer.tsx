@@ -421,23 +421,26 @@ export function TransferDrawer({ onRefresh }: { onRefresh: () => void }) {
                           {d.basePath}
                         </p>
                       </div>
-                      <div className="flex items-center gap-1 flex-shrink-0">
-                        {confirmedSelected.length > 0 && !transferring && (
-                          <button
-                            onClick={() => {
-                              setSelectedDest(d.id);
-                              handleTransferTo(d.id);
-                            }}
-                            title={`Transfer ${totalFiles} file${totalFiles !== 1 ? "s" : ""} to ${d.name}`}
-                            className="p-1.5 rounded-md text-accent hover:bg-accent/20 transition-colors"
-                          >
-                            <IconTransfer />
-                          </button>
-                        )}
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <button
+                          onClick={() => {
+                            setSelectedDest(d.id);
+                            handleTransferTo(d.id);
+                          }}
+                          disabled={confirmedSelected.length === 0 || transferring}
+                          title={confirmedSelected.length > 0 ? `Transfer ${totalFiles} file${totalFiles !== 1 ? "s" : ""} to ${d.name}` : "Select confirmed groups to transfer"}
+                          className={`p-1.5 rounded-md transition-colors ${
+                            confirmedSelected.length > 0 && !transferring
+                              ? "text-accent hover:bg-accent/15"
+                              : "text-text-muted cursor-not-allowed"
+                          }`}
+                        >
+                          <IconTransfer />
+                        </button>
                         <button
                           onClick={() => setShowAddDest(true)}
                           title="Edit destination"
-                          className="p-1.5 rounded-md text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors"
+                          className="p-1.5 rounded-md text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors"
                         >
                           <IconPencil />
                         </button>
@@ -447,7 +450,7 @@ export function TransferDrawer({ onRefresh }: { onRefresh: () => void }) {
                             handleDeleteDest(d.id);
                           }}
                           title="Delete destination"
-                          className="p-1.5 rounded-md text-text-muted hover:text-error hover:bg-error/10 transition-colors"
+                          className="p-1.5 rounded-md text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors"
                         >
                           <IconTrash />
                         </button>

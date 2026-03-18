@@ -1,8 +1,9 @@
 import { create } from "zustand";
-import type { Job, Group, MatchCandidate, Destination } from "@/lib/db/schema";
+import type { Job, Group, MatchCandidate, Destination, SubtitleFile } from "@/lib/db/schema";
 
 export type JobWithPreview = Job & {
   previewName?: string | null;
+  subtitles?: SubtitleFile[];
 };
 
 export type GroupWithJobs = Group & {
@@ -32,6 +33,14 @@ interface AppState {
   selectedGroupIds: Record<number, boolean>;
   activeGroupId: number | null;
   activeGroup: GroupWithJobs | null;
+
+  // Scan progress
+  scanProgress: {
+    phase: string;
+    total: number;
+    processed: number;
+    name: string;
+  } | null;
 
   // Panels
   matchPanelOpen: boolean;
@@ -68,6 +77,7 @@ interface AppState {
   // Active group
   setActiveGroup: (group: GroupWithJobs | null) => void;
   setMatchPanelOpen: (open: boolean) => void;
+  setScanProgress: (progress: AppState["scanProgress"]) => void;
   setSettingsOpen: (open: boolean) => void;
   setTransferDrawerOpen: (open: boolean) => void;
   setSettings: (settings: Record<string, string>) => void;
@@ -96,6 +106,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   selectedGroupIds: {},
   activeGroupId: null,
   activeGroup: null,
+
+  scanProgress: null,
 
   matchPanelOpen: false,
   settingsOpen: false,
@@ -171,6 +183,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       ...(open ? {} : { activeGroup: null, activeGroupId: null }),
     }),
 
+  setScanProgress: (scanProgress) => set({ scanProgress }),
   setSettingsOpen: (open) => set({ settingsOpen: open }),
   setTransferDrawerOpen: (open) => set({ transferDrawerOpen: open }),
   setSettings: (settings) => set({ settings }),

@@ -6,6 +6,15 @@ const VIDEO_EXTENSIONS = new Set([
   ".mpg", ".mpeg", ".ts", ".m2ts", ".vob", ".iso", ".webm",
 ]);
 
+const DEFAULT_SUBTITLE_EXTENSIONS = new Set([".srt"]);
+
+const SUBTITLE_FOLDER_NAMES = new Set([
+  "subs", "sub", "subtitles", "subtitle",
+]);
+
+/** Quick check for season/episode indicators in a filename */
+const HAS_EPISODE_INFO = /[Ss]\d{1,2}[Ee]\d{1,3}|\d{1,2}[xX]\d{2,3}|[Ss]eason\s*\d{1,2}\s*[Ee]pisode/i;
+
 const SEASON_FOLDER_PATTERN = /^(?:Season\s*|S)(\d+)$/i;
 const SPECIALS_FOLDER_NAMES = new Set(["specials", "season 0", "season 00", "season0", "season00"]);
 
@@ -48,10 +57,86 @@ export interface ScannedGroupFile {
   extraType: string | null;
 }
 
+export interface ScannedSubtitleFile {
+  sourcePath: string;
+  fileName: string;
+  fileExtension: string;
+  languageCode: string | null;
+  /** The base name used for matching to a video file (without language code and subtitle extension) */
+  matchBase: string;
+}
+
 export interface ScannedGroup {
   folderPath: string;
   folderName: string;
   files: ScannedGroupFile[];
+  subtitles: ScannedSubtitleFile[];
+}
+
+/**
+ * Parse a subtitle filename to extract the language code and match base.
+ * E.g. "Show.S01E01.en.srt" → { languageCode: "en", matchBase: "show.s01e01" }
+ *      "Show.S01E01.srt"    → { languageCode: null, matchBase: "show.s01e01" }
+ */
+function parseSubtitleName(
+  fileName: string,
+  subtitleExts: Set<string>
+): { languageCode: string | null; matchBase: string } | null {
+  const ext = path.extname(fileName).toLowerCase();
+  if (!subtitleExts.has(ext)) return null;
+
+  const withoutExt = fileName.slice(0, -ext.length);
+  // Check if the part before .srt is a 2-3 char language code
+  const lastDot = withoutExt.lastIndexOf(".");
+  if (lastDot !== -1) {
+    const possibleLang = withoutExt.slice(lastDot + 1);
+    if (/^[a-z]{2,3}$/i.test(possibleLang)) {
+      return {
+        languageCode: possibleLang.toLowerCase(),
+        matchBase: withoutExt.slice(0, lastDot).toLowerCase(),
+      };
+    }
+  }
+  return { languageCode: null, matchBase: withoutExt.toLowerCase() };
+}
+
+function collectSubtitleFiles(
+  dir: string,
+  subtitleExts: Set<string>,
+  languageFilter: Set<string> | null
+): ScannedSubtitleFile[] {
+  const results: ScannedSubtitleFile[] = [];
+  let entries: fs.Dirent[];
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return results;
+  }
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      results.push(...collectSubtitleFiles(fullPath, subtitleExts, languageFilter));
+    } else if (entry.isFile()) {
+      const ext = path.extname(entry.name).toLowerCase();
+      if (subtitleExts.has(ext)) {
+        const parsed = parseSubtitleName(entry.name, subtitleExts);
+        if (parsed) {
+          // Language filter: if filter is set and subtitle has a language code, it must match
+          if (languageFilter && parsed.languageCode && !languageFilter.has(parsed.languageCode)) {
+            continue;
+          }
+          results.push({
+            sourcePath: fullPath,
+            fileName: entry.name,
+            fileExtension: ext,
+            languageCode: parsed.languageCode,
+            matchBase: parsed.matchBase,
+          });
+        }
+      }
+    }
+  }
+  return results;
 }
 
 function collectVideoFiles(dir: string): ScannedFile[] {
@@ -110,7 +195,13 @@ function classifySubfolder(
   return { detectedSeason: null, fileCategory: "episode", extraType: null };
 }
 
-export function scanDirectoryGrouped(dirPath: string): ScannedGroup[] {
+export function scanDirectoryGrouped(
+  dirPath: string,
+  subtitleExtensions?: Set<string>,
+  subtitleLanguages?: Set<string> | null
+): ScannedGroup[] {
+  const subExts = subtitleExtensions ?? DEFAULT_SUBTITLE_EXTENSIONS;
+  const langFilter = subtitleLanguages && subtitleLanguages.size > 0 ? subtitleLanguages : null;
   const groups: ScannedGroup[] = [];
   const entries = fs.readdirSync(dirPath, { withFileTypes: true });
 
@@ -122,6 +213,7 @@ export function scanDirectoryGrouped(dirPath: string): ScannedGroup[] {
         folderPath: fullPath,
         folderName: entry.name,
         files: [],
+        subtitles: [],
       };
 
       // Walk the group folder
@@ -132,6 +224,12 @@ export function scanDirectoryGrouped(dirPath: string): ScannedGroup[] {
         const subPath = path.join(fullPath, sub.name);
 
         if (sub.isDirectory()) {
+          // Check if this is a subtitle folder
+          if (SUBTITLE_FOLDER_NAMES.has(sub.name.toLowerCase().trim())) {
+            group.subtitles.push(...collectSubtitleFiles(subPath, subExts, langFilter));
+            continue;
+          }
+
           const classification = classifySubfolder(sub.name);
           if (classification.fileCategory === "episode" && classification.detectedSeason !== null) {
             hasSeasonFolders = true;
@@ -147,6 +245,9 @@ export function scanDirectoryGrouped(dirPath: string): ScannedGroup[] {
               extraType: classification.extraType,
             });
           }
+
+          // Also collect subtitles from season/extra subfolders and their sub dirs
+          group.subtitles.push(...collectSubtitleFiles(subPath, subExts, langFilter));
         } else if (sub.isFile()) {
           const ext = path.extname(sub.name).toLowerCase();
           if (VIDEO_EXTENSIONS.has(ext)) {
@@ -160,26 +261,43 @@ export function scanDirectoryGrouped(dirPath: string): ScannedGroup[] {
               fileCategory: "episode", // default, may be reclassified
               extraType: null,
             });
+          } else if (subExts.has(ext)) {
+            // Subtitle file at group root level
+            const parsed = parseSubtitleName(sub.name, subExts);
+            if (parsed) {
+              // Language filter: if filter is set and subtitle has a language code, it must match
+              if (!langFilter || !parsed.languageCode || langFilter.has(parsed.languageCode)) {
+                group.subtitles.push({
+                  sourcePath: subPath,
+                  fileName: sub.name,
+                  fileExtension: ext,
+                  languageCode: parsed.languageCode,
+                  matchBase: parsed.matchBase,
+                });
+              }
+            }
           }
         }
       }
 
       if (group.files.length > 0) {
         // Media type heuristic: if season folders exist or multiple files → TV
-        // Single file with no season folders → movie
+        // Single file with no season folders and no episode info in filename → movie
         if (!hasSeasonFolders && group.files.length === 1 &&
-            group.files.every((f) => f.fileCategory === "episode")) {
-          // Single file, no season structure → likely a movie
+            group.files.every((f) => f.fileCategory === "episode") &&
+            !HAS_EPISODE_INFO.test(group.files[0].fileName)) {
           group.files[0].fileCategory = "movie";
         }
 
         groups.push(group);
       }
     } else if (entry.isFile()) {
-      // Loose file in scan root → single-file group (movie)
+      // Loose file in scan root → single-file group
       const ext = path.extname(entry.name).toLowerCase();
       if (VIDEO_EXTENSIONS.has(ext)) {
         const stat = fs.statSync(fullPath);
+        // Detect if the filename contains season/episode info → TV, otherwise movie
+        const hasEpisodeInfo = HAS_EPISODE_INFO.test(entry.name);
         groups.push({
           folderPath: dirPath,
           folderName: entry.name.replace(/\.[^.]+$/, ""),
@@ -190,10 +308,11 @@ export function scanDirectoryGrouped(dirPath: string): ScannedGroup[] {
               fileSize: stat.size,
               fileExtension: ext,
               detectedSeason: null,
-              fileCategory: "movie",
+              fileCategory: hasEpisodeInfo ? "episode" : "movie",
               extraType: null,
             },
           ],
+          subtitles: [],
         });
       }
     }

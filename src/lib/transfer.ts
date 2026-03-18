@@ -2,7 +2,7 @@ import fs from "fs";
 import path from "path";
 import { Client as SSHClient } from "ssh2";
 import { db } from "./db";
-import { jobs, groups, destinations, settings } from "./db/schema";
+import { jobs, groups, destinations, subtitleFiles, settings } from "./db/schema";
 import { eq } from "drizzle-orm";
 import { formatGroupedPath } from "./naming";
 import type { Job, Destination } from "./db/schema";
@@ -77,6 +77,155 @@ function buildRelativePath(job: Job): string {
     naming_preset: namingPreset,
     specials_folder_name: specialsFolderName,
     extras_folder_name: extrasFolderName,
+  });
+}
+
+/**
+ * Build subtitle destination path by replacing the media extension with
+ * the subtitle extension (and optional language code).
+ * E.g. "Show S01E01 - Title.mkv" → "Show S01E01 - Title.en.srt"
+ */
+function buildSubtitlePath(
+  mediaRelativePath: string,
+  subtitleExt: string,
+  languageCode: string | null
+): string {
+  const lastDot = mediaRelativePath.lastIndexOf(".");
+  const basePath = lastDot !== -1 ? mediaRelativePath.slice(0, lastDot) : mediaRelativePath;
+  const ext = subtitleExt.startsWith(".") ? subtitleExt : `.${subtitleExt}`;
+  return languageCode ? `${basePath}.${languageCode}${ext}` : `${basePath}${ext}`;
+}
+
+/**
+ * Transfer subtitle files for a completed job (local copy, fire-and-forget)
+ */
+function transferSubtitlesLocal(
+  jobId: number,
+  mediaRelativePath: string,
+  destBasePath: string
+) {
+  const subs = db
+    .select()
+    .from(subtitleFiles)
+    .where(eq(subtitleFiles.jobId, jobId))
+    .all();
+
+  for (const sub of subs) {
+    try {
+      const subRelPath = buildSubtitlePath(
+        mediaRelativePath,
+        sub.fileExtension,
+        sub.languageCode
+      );
+      const fullDest = path.join(destBasePath, subRelPath);
+      fs.mkdirSync(path.dirname(fullDest), { recursive: true });
+      fs.copyFileSync(sub.sourcePath, fullDest);
+    } catch (err) {
+      console.error(
+        `Failed to copy subtitle ${sub.sourcePath}:`,
+        err instanceof Error ? err.message : err
+      );
+    }
+  }
+}
+
+/**
+ * Transfer subtitle files for a completed job via SFTP
+ */
+async function transferSubtitlesSFTP(
+  jobId: number,
+  mediaRelativePath: string,
+  dest: Destination
+): Promise<void> {
+  const subs = db
+    .select()
+    .from(subtitleFiles)
+    .where(eq(subtitleFiles.jobId, jobId))
+    .all();
+
+  if (subs.length === 0) return;
+
+  return new Promise((resolve, reject) => {
+    const conn = new SSHClient();
+
+    conn.on("ready", () => {
+      conn.sftp((err, sftp) => {
+        if (err) {
+          conn.end();
+          reject(err);
+          return;
+        }
+
+        let completed = 0;
+        const total = subs.length;
+
+        for (const sub of subs) {
+          const subRelPath = buildSubtitlePath(
+            mediaRelativePath,
+            sub.fileExtension,
+            sub.languageCode
+          );
+          const fullDest =
+            dest.basePath.replace(/\\/g, "/") +
+            "/" +
+            subRelPath.replace(/\\/g, "/");
+
+          // Create remote directories then upload
+          const dirs = path.dirname(fullDest).split("/").filter(Boolean);
+          let currentDir = "/";
+          const mkdirAndUpload = (index: number) => {
+            if (index >= dirs.length) {
+              // Upload the file
+              const readStream = fs.createReadStream(sub.sourcePath);
+              const writeStream = sftp.createWriteStream(fullDest);
+              writeStream.on("close", () => {
+                completed++;
+                if (completed === total) {
+                  conn.end();
+                  resolve();
+                }
+              });
+              writeStream.on("error", (writeErr: Error) => {
+                console.error(
+                  `Failed to SFTP subtitle ${sub.sourcePath}:`,
+                  writeErr.message
+                );
+                completed++;
+                if (completed === total) {
+                  conn.end();
+                  resolve();
+                }
+              });
+              readStream.pipe(writeStream);
+              return;
+            }
+            currentDir += (currentDir === "/" ? "" : "/") + dirs[index];
+            sftp.mkdir(currentDir, () => mkdirAndUpload(index + 1));
+          };
+          mkdirAndUpload(0);
+        }
+      });
+    });
+
+    conn.on("error", (connErr) => {
+      console.error("SFTP subtitle connection error:", connErr.message);
+      resolve(); // Don't fail the main transfer for subtitle errors
+    });
+
+    const connectConfig: Record<string, unknown> = {
+      host: dest.sshHost!,
+      port: dest.sshPort || 22,
+      username: dest.sshUser!,
+    };
+
+    if (dest.sshKeyPath) {
+      connectConfig.privateKey = fs.readFileSync(dest.sshKeyPath);
+      if (dest.sshKeyPassphrase) {
+        connectConfig.passphrase = dest.sshKeyPassphrase;
+      }
+    }
+
+    conn.connect(connectConfig);
   });
 }
 
@@ -293,10 +442,16 @@ async function processTransfer(jobId: number, destinationId: number) {
       .where(eq(jobs.id, jobId))
       .run();
 
+    const relativePath = buildRelativePath(job);
+
     if (dest.type === "ssh") {
       await transferSFTP(job, dest);
+      await transferSubtitlesSFTP(jobId, relativePath, dest).catch((err) =>
+        console.error("Subtitle SFTP error:", err)
+      );
     } else {
       await transferLocal(job, dest);
+      transferSubtitlesLocal(jobId, relativePath, dest.basePath);
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : "Transfer failed";

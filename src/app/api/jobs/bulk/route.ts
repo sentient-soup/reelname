@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { jobs, groups, matchCandidates } from "@/lib/db/schema";
+import { jobs, groups, matchCandidates, settings } from "@/lib/db/schema";
 import { eq, inArray } from "drizzle-orm";
 import { parseFolderName } from "@/lib/parser";
+import { matchGroup } from "@/lib/matcher";
 
 export async function POST(request: Request) {
   const body = await request.json();
   const { action, jobIds, groupIds } = body as {
-    action: "confirm" | "skip" | "delete" | "rematch";
+    action: "confirm" | "delete" | "rematch";
     jobIds?: number[];
     groupIds?: number[];
   };
@@ -38,25 +39,20 @@ export async function POST(request: Request) {
         }
         break;
 
-      case "skip":
-        db.update(groups)
-          .set({ status: "skipped", updatedAt: now })
-          .where(inArray(groups.id, groupIds))
-          .run();
-        for (const gid of groupIds) {
-          db.update(jobs)
-            .set({ status: "skipped", updatedAt: now })
-            .where(eq(jobs.groupId, gid))
-            .run();
-        }
-        break;
-
       case "delete":
         // Cascade delete handles child jobs and candidates
         db.delete(groups).where(inArray(groups.id, groupIds)).run();
         break;
 
-      case "rematch":
+      case "rematch": {
+        // Check if TMDB key is configured
+        const tmdbKey = db
+          .select()
+          .from(settings)
+          .where(eq(settings.key, "tmdb_api_key"))
+          .get();
+        const hasTmdbKey = !!(tmdbKey?.value && tmdbKey.value.trim().length > 0);
+
         for (const gid of groupIds) {
           const group = db.select().from(groups).where(eq(groups.id, gid)).get();
           if (!group) continue;
@@ -64,6 +60,7 @@ export async function POST(request: Request) {
           // Re-parse folder name to pick up parser improvements
           const parsed = parseFolderName(group.folderName);
 
+          // Reset group and child jobs to scanned state
           db.update(groups)
             .set({
               status: "scanned",
@@ -81,7 +78,12 @@ export async function POST(request: Request) {
           db.update(jobs)
             .set({
               status: "scanned",
+              tmdbId: null,
+              tmdbTitle: null,
+              tmdbYear: null,
+              tmdbPosterPath: null,
               tmdbEpisodeTitle: null,
+              matchConfidence: null,
               updatedAt: now,
             })
             .where(eq(jobs.groupId, gid))
@@ -89,8 +91,21 @@ export async function POST(request: Request) {
           db.delete(matchCandidates)
             .where(eq(matchCandidates.groupId, gid))
             .run();
+
+          // Re-run TMDB matching
+          if (hasTmdbKey) {
+            const freshGroup = db.select().from(groups).where(eq(groups.id, gid)).get();
+            if (freshGroup) {
+              try {
+                await matchGroup(freshGroup);
+              } catch (err) {
+                console.error(`Rematch failed for group ${gid}:`, err);
+              }
+            }
+          }
         }
         break;
+      }
     }
     affected += groupIds.length;
   }
@@ -105,12 +120,6 @@ export async function POST(request: Request) {
           .run();
         break;
 
-      case "skip":
-        db.update(jobs)
-          .set({ status: "skipped", updatedAt: now })
-          .where(inArray(jobs.id, jobIds))
-          .run();
-        break;
 
       case "delete":
         for (const id of jobIds) {

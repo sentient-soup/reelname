@@ -120,6 +120,42 @@ describe("parseFileName", () => {
     });
   });
 
+  describe("leading episode number", () => {
+    it("parses leading number followed by dash and title", () => {
+      const result = parseFileName("01 - Show Episode Title.mkv");
+      expect(result.season).toBe(1);
+      expect(result.episode).toBe(1);
+      expect(result.mediaType).toBe("tv");
+    });
+
+    it("parses two-digit leading number", () => {
+      const result = parseFileName("12 - The Big Episode.mkv");
+      expect(result.season).toBe(1);
+      expect(result.episode).toBe(12);
+      expect(result.mediaType).toBe("tv");
+    });
+
+    it("parses three-digit leading number", () => {
+      const result = parseFileName("100 - Hundredth Episode Title.mkv");
+      expect(result.season).toBe(1);
+      expect(result.episode).toBe(100);
+      expect(result.mediaType).toBe("tv");
+    });
+
+    it("does not treat a leading year as an episode", () => {
+      const result = parseFileName("2023 - Some Movie Title.mkv");
+      expect(result.episode).toBeUndefined();
+      expect(result.year).toBe(2023);
+      expect(result.mediaType).toBe("movie");
+    });
+
+    it("extracts title from after the leading episode number", () => {
+      const result = parseFileName("05 - My Great Episode.mkv");
+      expect(result.episode).toBe(5);
+      expect(result.title).toBe("My Great Episode");
+    });
+  });
+
   describe("edge cases", () => {
     it("S01E01 takes priority over bare number", () => {
       const result = parseFileName("Show - 03 - Title S02E05.mkv");

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { groups, jobs, matchCandidates, settings } from "@/lib/db/schema";
+import { groups, jobs, matchCandidates, subtitleFiles, settings } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { getEpisode } from "@/lib/tmdb";
 import { formatGroupedPath } from "@/lib/naming";
@@ -29,8 +29,13 @@ export async function GET(
     .where(eq(matchCandidates.groupId, groupId))
     .all();
 
-  // Compute preview names if group has a TMDB match
-  let jobsWithPreview = groupJobs;
+  // Attach subtitles and compute preview names
+  const addSubtitles = (job: typeof groupJobs[number]) => ({
+    ...job,
+    subtitles: db.select().from(subtitleFiles).where(eq(subtitleFiles.jobId, job.id)).all(),
+  });
+
+  let jobsWithPreview;
   if (group.tmdbId) {
     const allSettings = db.select().from(settings).all();
     const settingsMap: Record<string, string> = {};
@@ -41,9 +46,11 @@ export async function GET(
       extras_folder_name: settingsMap["extras_folder_name"] || "Extras",
     };
     jobsWithPreview = groupJobs.map((job) => ({
-      ...job,
+      ...addSubtitles(job),
       previewName: formatGroupedPath(job, group, namingSettings),
     }));
+  } else {
+    jobsWithPreview = groupJobs.map(addSubtitles);
   }
 
   return NextResponse.json({ ...group, jobs: jobsWithPreview, candidates });
@@ -120,8 +127,13 @@ export async function PATCH(
     .where(eq(jobs.groupId, groupId))
     .all();
 
-  // Compute preview names if group has a TMDB match
-  let jobsWithPreview = groupJobs;
+  // Attach subtitles and compute preview names
+  const addSubtitlesPatch = (job: typeof groupJobs[number]) => ({
+    ...job,
+    subtitles: db.select().from(subtitleFiles).where(eq(subtitleFiles.jobId, job.id)).all(),
+  });
+
+  let jobsWithPreview;
   if (updated.tmdbId) {
     const allSettings = db.select().from(settings).all();
     const settingsMap: Record<string, string> = {};
@@ -132,9 +144,11 @@ export async function PATCH(
       extras_folder_name: settingsMap["extras_folder_name"] || "Extras",
     };
     jobsWithPreview = groupJobs.map((job) => ({
-      ...job,
+      ...addSubtitlesPatch(job),
       previewName: formatGroupedPath(job, updated, namingSettings),
     }));
+  } else {
+    jobsWithPreview = groupJobs.map(addSubtitlesPatch);
   }
 
   return NextResponse.json({ ...updated, jobs: jobsWithPreview });
