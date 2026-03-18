@@ -285,6 +285,17 @@ async function main() {
     pruneStandalone(nmDir);
   }
 
+  // Step 2d: Flatten .next/node_modules inside standalone
+  // Next.js standalone output may create a separate .next/node_modules/ with
+  // its own pnpm symlinks (e.g. better-sqlite3). These break electron-builder
+  // signing on macOS because the symlink targets don't exist after packaging.
+  const dotNextNm = path.join(STANDALONE, ".next", "node_modules");
+  if (fs.existsSync(dotNextNm)) {
+    console.log("\n=== Step 2d: Flattening .next/node_modules ===");
+    flattenNodeModules(dotNextNm);
+    console.log("Flattened standalone/.next/node_modules/ for packaging");
+  }
+
   // Step 3: Download Node binary
   console.log("\n=== Step 3: Downloading Node.js binary ===");
   await downloadNodeBinary(platform);

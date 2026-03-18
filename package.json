@@ -1,6 +1,6 @@
 {
   "name": "reelname",
-  "version": "0.2.15",
+  "version": "0.2.16",
   "private": true,
   "description": "Media file renaming and transfer tool",
   "author": "ReelName",
@@ -17,7 +17,8 @@
     "electron:build": "node scripts/build-electron.js",
     "electron:build:win": "node scripts/build-electron.js --platform=win",
     "electron:build:mac": "node scripts/build-electron.js --platform=mac",
-    "electron:build:linux": "node scripts/build-electron.js --platform=linux"
+    "electron:build:linux": "node scripts/build-electron.js --platform=linux",
+    "release": "node scripts/release.js"
   },
   "dependencies": {
     "better-sqlite3": "^12.6.2",
